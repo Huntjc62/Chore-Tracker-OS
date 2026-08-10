@@ -370,7 +370,7 @@ async function finishHouseholdLoad(){
  const h=await window.fs.getDoc(window.fs.doc(window.firebaseDb,"households",householdId));if(!h.exists()){showToast("❌ Household no longer exists.");return}
  householdData=h.data();cloudReady=true;document.getElementById("householdScreen").classList.add("hidden");document.getElementById("mainApp").classList.remove("hidden");
  const p=document.querySelector(".brand p");if(p)p.textContent=`${householdData.name||"Our Home"} • ${window.currentFirebaseUser.email}`;
- startCloudListeners();render();
+ startCloudListeners();render();setTimeout(runSmartNotificationChecks,1200);
 }
 function stopCloudListeners(){[unsubscribeChores,unsubscribeCompletions,unsubscribeRewards,unsubscribeRedemptions,unsubscribeMembers].forEach(fn=>{if(typeof fn==="function")fn()});unsubscribeChores=unsubscribeCompletions=unsubscribeRewards=unsubscribeRedemptions=unsubscribeMembers=null;cloudReady=false;householdId=null;householdData=null;chores=[];completionHistory=[];rewards=[];rewardRedemptions=[];householdMembers=[]}
 function startCloudListeners(){
@@ -462,7 +462,7 @@ function rewardsHTML(){
 function openChoreModal(id=null){editingId=id;const c=id?chores.find(x=>x.id===id):null;document.getElementById("modalTitle").textContent=id?"Edit Chore":"Add Chore";document.getElementById("choreName").value=c?.name||"";document.getElementById("chorePerson").value=c?.assignedTo||"Josh";document.getElementById("chorePoints").value=c?.points||5;document.getElementById("choreDate").value=c?.dueDate||todayKey();document.getElementById("choreRepeat").value=c?.repeat||"none";document.getElementById("modalBackdrop").classList.add("show");setTimeout(()=>document.getElementById("choreName").focus(),50)}
 function closeModal(){document.getElementById("modalBackdrop").classList.remove("show");editingId=null}
 async function submitChoreForm(e){e.preventDefault();if(!cloudReady)return;const data={name:document.getElementById("choreName").value.trim(),assignedTo:document.getElementById("chorePerson").value,points:Number(document.getElementById("chorePoints").value),dueDate:document.getElementById("choreDate").value,repeat:document.getElementById("choreRepeat").value};if(!data.name||!data.dueDate)return;try{if(editingId){const c=chores.find(x=>x.id===editingId);await saveChoreCloud({...c,...data});showToast("✏️ Chore updated")}else{await saveChoreCloud({id:uid(),...data,completed:false,completedAt:null});showToast("🧹 Chore added")}closeModal()}catch(err){console.error(err);showToast("❌ Could not save chore")}}
-async function completeChore(id){const c=chores.find(x=>x.id===id);if(!c)return;try{const completedDate=todayKey(),points=Number(c.points||0);const h={id:uid(),choreId:c.id,choreName:c.name,person:c.assignedTo,personUid:memberForName(c.assignedTo)?.uid||null,points,date:completedDate,week:weekKey(),completedAt:new Date().toISOString()};await saveCompletionCloud(h);if(c.repeat!=="none"){await saveChoreCloud({...c,completed:false,completedAt:null,dueDate:nextDueDate(c.dueDate,c.repeat)});showToast(`🔄 ${c.name} completed — next due ${formatDate(nextDueDate(c.dueDate,c.repeat))}`)}else{await saveChoreCloud({...c,completed:true,completedAt:{date:completedDate,week:weekKey()}});showToast(`⭐ ${points} points earned!`)}}catch(err){console.error(err);showToast("❌ Could not complete chore")}}
+async function completeChore(id){const c=chores.find(x=>x.id===id);if(!c)return;try{const completedDate=todayKey(),points=Number(c.points||0);const h={id:uid(),choreId:c.id,choreName:c.name,person:c.assignedTo,personUid:memberForName(c.assignedTo)?.uid||null,points,date:completedDate,week:weekKey(),completedAt:new Date().toISOString()};await saveCompletionCloud(h);completionHistory.push(h);achievementNotification(c.assignedTo,streakForMember(c.assignedTo));leaderboardNotification();if(c.repeat!=="none"){await saveChoreCloud({...c,completed:false,completedAt:null,dueDate:nextDueDate(c.dueDate,c.repeat)});showToast(`🔄 ${c.name} completed — next due ${formatDate(nextDueDate(c.dueDate,c.repeat))}`)}else{await saveChoreCloud({...c,completed:true,completedAt:{date:completedDate,week:weekKey()}});showToast(`⭐ ${points} points earned!`)}}catch(err){console.error(err);showToast("❌ Could not complete chore")}}
 async function undoChore(id){const c=chores.find(x=>x.id===id);if(!c)return;try{await saveChoreCloud({...c,completed:false,completedAt:null});showToast("↩ Chore reopened") }catch(err){showToast("❌ Could not update chore")}}
 function nextDueDate(date,repeat){const d=parseDate(date);if(repeat==="daily")d.setDate(d.getDate()+1);if(repeat==="everyOtherDay")d.setDate(d.getDate()+2);if(repeat==="weekly")d.setDate(d.getDate()+7);if(repeat==="monthly")d.setMonth(d.getMonth()+1);return dateKey(d)}
 async function deleteChore(id){const c=chores.find(x=>x.id===id);if(!c)return;if(confirm(`Delete "${c.name}"?`)){try{await deleteChoreCloud(id);showToast("🗑️ Chore deleted")}catch(err){showToast("❌ Could not delete chore")}}}
@@ -492,47 +492,186 @@ function escapeHTML(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":
 
 document.addEventListener("DOMContentLoaded",()=>{document.getElementById("authForm").addEventListener("submit",handleAuthSubmit);document.getElementById("authSwitch").addEventListener("click",()=>{authMode=authMode==="signin"?"signup":"signin";setAuthMessage("",false);updateAuthUI()});document.getElementById("choreForm").addEventListener("submit",submitChoreForm);document.getElementById("profileForm").addEventListener("submit",saveMyProfile);document.getElementById("profileModalBackdrop").addEventListener("click",e=>{if(e.target.id==="profileModalBackdrop")closeProfileModal()});document.getElementById("modalBackdrop").addEventListener("click",e=>{if(e.target.id==="modalBackdrop")closeModal()});document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal()});updateAuthUI()});
 window.addEventListener("firebase-auth-changed",e=>handleAuthState(e.detail.user));
-/* Notifications */
+/* =========================================================
+   SMART NOTIFICATIONS
+   ========================================================= */
+const SMART_NOTIFY_KEY = "ourHomeSmartNotificationHistoryV1";
+
+function notificationsSupported(){
+  return "Notification" in window;
+}
+function notificationsGranted(){
+  return notificationPermission==="enabled" && notificationsSupported() && Notification.permission==="granted";
+}
+function smartHistory(){
+  return loadJSON(SMART_NOTIFY_KEY,{});
+}
+function saveSmartHistory(history){
+  localStorage.setItem(SMART_NOTIFY_KEY,JSON.stringify(history));
+}
+function smartKey(type,extra=""){
+  return `${householdId||"no-household"}|${type}|${extra}`;
+}
+function alreadyNotified(type,extra=""){
+  return !!smartHistory()[smartKey(type,extra)];
+}
+function markNotified(type,extra=""){
+  const h=smartHistory();
+  h[smartKey(type,extra)]=new Date().toISOString();
+  const keys=Object.keys(h);
+  if(keys.length>250){
+    keys.sort((a,b)=>new Date(h[a])-new Date(h[b]));
+    keys.slice(0,keys.length-250).forEach(k=>delete h[k]);
+  }
+  saveSmartHistory(h);
+}
+function sendSmartNotification(title,body,tag,onClick){
+  if(!notificationsGranted())return false;
+  try{
+    const n=new Notification(title,{body,tag,renotify:false});
+    if(onClick)n.onclick=()=>{window.focus();onClick();n.close()};
+    return true;
+  }catch(e){console.error("Notification error",e);return false;}
+}
+function currentMember(){
+  const uid=window.currentFirebaseUser?.uid;
+  return householdMembers.find(m=>m.uid===uid)||null;
+}
+function currentMemberName(){
+  const m=currentMember();
+  return m?.name || window.currentFirebaseUser?.displayName || window.currentFirebaseUser?.email?.split("@")[0] || "You";
+}
+function weeklyPointsForMember(m){
+  if(!m)return 0;
+  return completionHistory.filter(h=>h.week===weekKey() && (h.personUid===m.uid || h.person===m.name)).reduce((s,h)=>s+Number(h.points||0),0);
+}
+function todayChoresForMember(m){
+  if(!m)return [];
+  return chores.filter(c=>!c.completed && c.dueDate===todayKey() && (c.assignedTo===m.name || c.assignedTo==="Shared"));
+}
+function morningNotification(){
+  if(!notificationsGranted())return;
+  const now=new Date(),hour=now.getHours();
+  if(hour<6 || hour>=12)return;
+  const key=todayKey();
+  if(alreadyNotified("morning",key))return;
+  const m=currentMember(),name=m?.name||currentMemberName();
+  const count=todayChoresForMember(m).length;
+  if(count===0)return;
+  const body=`☀️ Good morning ${name}\nYou've got ${count} chore${count===1?"":"s"} today.`;
+  if(sendSmartNotification("☀️ Good morning!",body,"morning-"+key,()=>setView("today")))markNotified("morning",key);
+}
+function overdueNotifications(){
+  if(!notificationsGranted())return;
+  const today=todayKey();
+  chores.filter(c=>!c.completed && c.dueDate<today).forEach(c=>{
+    const key=`${c.id}-${today}`;
+    if(notifiedOverdue.includes(key))return;
+    if(sendSmartNotification("🚨 Overdue Chore",`${c.name} is overdue${c.assignedTo?` for ${c.assignedTo}`:""}.`,`overdue-${c.id}`,()=>setView("today"))){
+      notifiedOverdue.push(key);
+    }
+  });
+  notifiedOverdue=notifiedOverdue.slice(-100);
+  localStorage.setItem(NOTIFIED_KEY,JSON.stringify(notifiedOverdue));
+}
+function achievementNotification(person,streak){
+  if(!notificationsGranted())return;
+  const m=memberForName(person);
+  const uid=m?.uid||person;
+  const milestones=[7,14,30];
+  if(!milestones.includes(streak))return;
+  const key=`${uid}-${streak}`;
+  if(alreadyNotified("achievement",key))return;
+  const name=person===currentMemberName()?"You":person;
+  const body=`🔥 New streak!\n${name} has completed chores for ${streak} days in a row.`;
+  if(sendSmartNotification("🔥 New streak!",body,"achievement-"+key,()=>setView("profiles")))markNotified("achievement",key);
+}
+function leaderboardNotification(){
+  if(!notificationsGranted() || householdMembers.length<2)return;
+  const week=weekKey();
+  const snapshotKey=`ourHomeLeaderboardSnapshot:${householdId}`;
+  const previous=loadJSON(snapshotKey,null);
+  const current={week,scores:{}};
+  householdMembers.forEach(m=>current.scores[m.uid]=weeklyPointsForMember(m));
+
+  if(previous && previous.week===week){
+    const me=currentMember();
+    if(me){
+      const myNow=current.scores[me.uid]||0;
+      const myBefore=previous.scores?.[me.uid]||0;
+      householdMembers.filter(m=>m.uid!==me.uid).forEach(other=>{
+        const otherNow=current.scores[other.uid]||0;
+        const otherBefore=previous.scores?.[other.uid]||0;
+        if(myBefore<=otherBefore && myNow>otherNow){
+          const key=`${week}-${me.uid}-${other.uid}-${myNow}`;
+          if(!alreadyNotified("overtake",key)){
+            const title="🏆 You're in the lead!";
+            const body=`${me.name} has overtaken ${other.name}!\n${me.name}: ${myNow} ⭐ • ${other.name}: ${otherNow} ⭐`;
+            if(sendSmartNotification(title,body,"overtake-"+key,()=>setView("leaderboard")))markNotified("overtake",key);
+          }
+        }
+      });
+    }
+  }
+  localStorage.setItem(snapshotKey,JSON.stringify(current));
+}
+function sundayResultsNotification(){
+  if(!notificationsGranted() || new Date().getDay()!==0)return;
+  if(new Date().getHours()<18)return;
+  const key=todayKey();
+  if(alreadyNotified("sunday",key))return;
+  const ranked=[...householdMembers].map(m=>({m,points:weeklyPointsForMember(m)})).sort((a,b)=>b.points-a.points);
+  if(!ranked.length)return;
+  const top=ranked[0].points;
+  if(top<=0)return;
+  const winners=ranked.filter(x=>x.points===top);
+  const title="🏆 Weekly results are in!";
+  const body=winners.length>1
+    ? `It's a tie! ${winners.map(x=>x.m.name).join(" & ")} finished on ${top} ⭐.`
+    : `${winners[0].m.name} won this week with ${top} ⭐.`;
+  if(sendSmartNotification(title,body,"sunday-results-"+key,()=>setView("leaderboard")))markNotified("sunday",key);
+}
+function runSmartNotificationChecks(){
+  if(!cloudReady || !notificationsGranted())return;
+  morningNotification();
+  overdueNotifications();
+  leaderboardNotification();
+  sundayResultsNotification();
+  updateNotificationBadge();
+}
 async function enableNotifications(){
-  if(!("Notification" in window)){showToast("❌ Browser notifications aren't supported.");return;}
+  if(!notificationsSupported()){showToast("❌ Browser notifications aren't supported.");return;}
   try{
     const permission=await Notification.requestPermission();
     if(permission==="granted"){
-      notificationPermission="enabled";localStorage.setItem(NOTIFY_KEY,"enabled");
-      updateNotificationButton();showToast("🔔 Notifications enabled!");
-      new Notification("🏠 Our Home",{body:"Notifications are now enabled."});
-      checkOverdueChores();
+      notificationPermission="enabled";
+      localStorage.setItem(NOTIFY_KEY,"enabled");
+      updateNotificationButton();
+      showToast("🔔 Notifications enabled!");
+      sendSmartNotification("🏠 Our Home","You're all set! We'll remind you about chores, streaks and weekly results.","welcome-notification");
+      setTimeout(runSmartNotificationChecks,300);
     }else{
-      notificationPermission="disabled";localStorage.setItem(NOTIFY_KEY,"disabled");
-      updateNotificationButton();showToast("🔕 Notifications are disabled.");
+      notificationPermission="disabled";
+      localStorage.setItem(NOTIFY_KEY,"disabled");
+      updateNotificationButton();
+      showToast(permission==="denied"?"🔕 Notifications are blocked in your browser.":"🔕 Notifications are disabled.");
     }
   }catch(e){console.error(e);showToast("❌ Unable to enable notifications.");}
 }
 function toggleNotifications(){
   if(notificationPermission==="enabled"){
-    notificationPermission="disabled";localStorage.setItem(NOTIFY_KEY,"disabled");
-    updateNotificationButton();showToast("🔕 Notifications switched off.");
+    notificationPermission="disabled";
+    localStorage.setItem(NOTIFY_KEY,"disabled");
+    updateNotificationButton();
+    showToast("🔕 Notifications switched off.");
   }else enableNotifications();
 }
 function updateNotificationButton(){
   const b=document.getElementById("notificationButton");if(!b)return;
-  const on=notificationPermission==="enabled"&&"Notification"in window&&Notification.permission==="granted";
+  const on=notificationsGranted();
   b.innerHTML=on?"🔔 Notifications ON":"🔔 Enable Notifications";
   b.classList.toggle("enabled",on);
-  b.classList.toggle("warning","Notification"in window&&Notification.permission==="denied");
-  updateNotificationBadge();
-}
-function checkOverdueChores(){
-  if(notificationPermission!=="enabled"||!("Notification"in window)||Notification.permission!=="granted")return;
-  const today=todayKey();
-  chores.filter(c=>!c.completed&&c.dueDate<today).forEach(c=>{
-    const key=`${c.id}-${today}`;
-    if(notifiedOverdue.includes(key))return;
-    try{new Notification("🚨 Overdue Chore",{body:`${c.name} is overdue for ${c.assignedTo==="Shared"?"the household":c.assignedTo}.`,tag:`overdue-${c.id}`});}catch(e){}
-    notifiedOverdue.push(key);
-  });
-  notifiedOverdue=notifiedOverdue.slice(-100);
-  localStorage.setItem(NOTIFIED_KEY,JSON.stringify(notifiedOverdue));
+  b.classList.toggle("warning",notificationsSupported()&&Notification.permission==="denied");
   updateNotificationBadge();
 }
 function updateNotificationBadge(){
@@ -541,13 +680,13 @@ function updateNotificationBadge(){
   const count=chores.filter(c=>getStatus(c).cls==="overdue").length;
   if(count){const badge=document.createElement("span");badge.className="notification-badge";badge.textContent=count;b.appendChild(badge);}
 }
-setInterval(checkOverdueChores,60000);
-document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"){checkOverdueChores();render();}});
-
-document.getElementById("modalBackdrop").addEventListener("click",e=>{if(e.target.id==="modalBackdrop")closeModal()});
-document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal()});
-
-setTimeout(checkOverdueChores,1200);
+setInterval(runSmartNotificationChecks,60000);
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="visible"){
+    runSmartNotificationChecks();
+    render();
+  }
+});
 </script>
 
 <script>
