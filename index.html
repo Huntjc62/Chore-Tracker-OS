@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Our Home V13.3 | Chore Tracker</title>
+<title>Our Home V13.4 | Chore Tracker</title>
 <style>
 :root{
   --bg:#f4f6f8;--card:#fff;--text:#17202a;--muted:#6b7280;--line:#e5e7eb;
@@ -182,6 +182,38 @@ window.OUR_HOME_DEV_PREMIUM = true;
 </style>
 <style id="phase1-security-css">
 .offline-banner{margin:0 18px 14px;padding:11px 14px;border-radius:12px;background:#fff7ed;color:#9a3412;border:1px solid #fed7aa;font-weight:800;font-size:13px}.offline-banner.hidden{display:none}.account-danger{margin-top:18px;border:1px solid #fecaca;background:#fff7f7;border-radius:16px;padding:16px}.account-danger h3{color:#b91c1c;margin:0 0 6px}.account-danger p{color:#7f1d1d;font-size:13px}</style>
+<script id="our-home-core-status">
+window.getStatus = function(chore) {
+  if (chore && chore.completed) return {text:"✓ Complete", cls:"done"};
+  if (!chore || !chore.dueDate) return {text:"No date", cls:""};
+  const today = new Date();
+  const key = today.getFullYear()+"-"+String(today.getMonth()+1).padStart(2,"0")+"-"+String(today.getDate()).padStart(2,"0");
+  if (chore.dueDate < key) return {text:"🔴 Overdue", cls:"overdue"};
+  if (chore.dueDate === key) return {text:"Today", cls:"today"};
+  return {text:"Upcoming", cls:""};
+};
+</script>
+<script id="our-home-pwa-update">
+(function(){
+  const BUILD="13.4";
+  window.OUR_HOME_BUILD=BUILD;
+  if("serviceWorker" in navigator){
+    window.addEventListener("load", async function(){
+      try{
+        const reg=await navigator.serviceWorker.register("./service-worker.js?v="+BUILD,{updateViaCache:"none"});
+        await reg.update();
+        if(reg.waiting){reg.waiting.postMessage("SKIP_WAITING");}
+        navigator.serviceWorker.addEventListener("controllerchange", function(){
+          if(!sessionStorage.getItem("ourHomeReloadedForBuild")){
+            sessionStorage.setItem("ourHomeReloadedForBuild","1");
+            window.location.reload();
+          }
+        });
+      }catch(e){console.warn("PWA update check failed",e);}
+    });
+  }
+})();
+</script>
 </head>
 <body>
 
@@ -417,7 +449,7 @@ function loadJSON(key,fallback){try{return JSON.parse(localStorage.getItem(key))
 function pad(n){return String(n).padStart(2,"0")}
 function dateKey(d){return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())}
 function todayKey(){return dateKey(new Date())}
-function getStatus(chore){if(chore.completed)return {text:"✓ Complete",cls:"done"};if(!chore.dueDate)return {text:"No date",cls:""};if(chore.dueDate<todayKey())return {text:"🔴 Overdue",cls:"overdue"};if(chore.dueDate===todayKey())return {text:"Today",cls:"today"};return {text:"Upcoming",cls:""};}
+window.getStatus = function getStatus(chore){if(chore.completed)return {text:"✓ Complete",cls:"done"};if(!chore.dueDate)return {text:"No date",cls:""};if(chore.dueDate<todayKey())return {text:"🔴 Overdue",cls:"overdue"};if(chore.dueDate===todayKey())return {text:"Today",cls:"today"};return {text:"Upcoming",cls:""};}
 
 function parseDate(s){const [y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d)}
 function formatDate(s){if(!s)return "No date";return parseDate(s).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}
@@ -432,10 +464,7 @@ function premiumStatusText(){
   if(window.OUR_HOME_DEV_PREMIUM) return "⭐ Plus (development account)";
   return isPlusActive() ? "⭐ Plus active" : "🆓 Free";
 }
-function planLabel(){
-  if(window.OUR_HOME_DEV_PREMIUM || isPlusActive()) return "⭐ Our Home Plus";
-  return "🆓 Our Home Free";
-}
+function planLabel(){return (window.OUR_HOME_DEV_PREMIUM || isPlusActive()) ? "⭐ Our Home Plus" : "🆓 Our Home Free";}
 function requirePlus(feature){
   if(isPlusActive()) return true;
   showToast(`⭐ ${feature} is an Our Home Plus feature. Choose Plus during onboarding, then complete payment to unlock it.`);

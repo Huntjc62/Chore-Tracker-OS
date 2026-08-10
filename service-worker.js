@@ -1,4 +1,4 @@
-const CACHE = "our-home-v13-3-stability-fix";
+const CACHE = "our-home-v13-4";
 const ASSETS = [
   "./",
   "./index.html",
@@ -28,6 +28,22 @@ self.addEventListener("message", event => {
 
 self.addEventListener("fetch", event => {
   if (event.request.method !== "GET") return;
+  const url = new URL(event.request.url);
+  const isDocument = event.request.mode === "navigate" ||
+    event.request.destination === "document" ||
+    url.pathname.endsWith("/index.html");
+
+  if (isDocument) {
+    event.respondWith(
+      fetch(event.request, {cache:"no-store"}).then(response => {
+        const copy = response.clone();
+        caches.open(CACHE).then(cache => cache.put("./index.html", copy)).catch(() => {});
+        return response;
+      }).catch(() => caches.match("./index.html"))
+    );
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request).then(cached => cached || fetch(event.request).then(response => {
       const copy = response.clone();
