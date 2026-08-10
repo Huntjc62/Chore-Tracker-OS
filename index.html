@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Our Home | Chore Tracker</title>
+<style>
+:root{
+  --bg:#f4f6f8;--card:#fff;--text:#17202a;--muted:#6b7280;--line:#e5e7eb;
+  --primary:#2563eb;--green:#16a34a;--red:#dc2626;--amber:#d97706;--purple:#7c3aed;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text)}
+button,input,select{font:inherit}
+button{border:0;cursor:pointer}
+.app{max-width:1200px;margin:auto;padding:24px}
+header{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:22px}
+.brand h1{margin:0;font-size:28px}.brand p{margin:4px 0 0;color:var(--muted)}
+.header-actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{padding:10px 14px;border-radius:10px;background:#111827;color:#fff;font-weight:700}
+.btn.secondary{background:#e5e7eb;color:#111827}.btn.green{background:var(--green)}.btn.red{background:var(--red)}
+.notification-button{background:#374151;color:#fff;padding:10px 14px;border-radius:10px;font-weight:700}
+.notification-button.enabled{background:var(--green)}.notification-button.warning{background:var(--red)}
+.notification-badge{display:inline-flex;min-width:20px;height:20px;align-items:center;justify-content:center;background:var(--red);border-radius:20px;margin-left:6px;font-size:11px}
+.nav{display:flex;gap:8px;overflow:auto;margin-bottom:20px}.nav button{padding:10px 14px;border-radius:10px;background:#fff;border:1px solid var(--line);white-space:nowrap}.nav button.active{background:#111827;color:#fff}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+.stat,.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 2px 8px #00000008}
+.stat .label{color:var(--muted);font-size:13px}.stat .value{font-size:30px;font-weight:800;margin-top:5px}
+.section-title{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:0 0 14px}.section-title h2{margin:0;font-size:20px}
+.chores{display:grid;gap:10px}.chore{display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;padding:15px;border:1px solid var(--line);border-radius:13px;background:#fff}
+.chore.done{opacity:.65}.chore-main{min-width:0}.chore-title{font-weight:800}.meta{display:flex;gap:7px;flex-wrap:wrap;margin-top:6px;color:var(--muted);font-size:12px}
+.badge{padding:4px 8px;border-radius:999px;background:#eef2ff;color:#4338ca;font-weight:700}.badge.overdue{background:#fee2e2;color:#b91c1c}.badge.today{background:#dcfce7;color:#166534}.badge.done{background:#e5e7eb;color:#4b5563}
+.actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}.icon-btn{padding:8px 10px;border-radius:8px;background:#eef2f7}
+.empty{text-align:center;padding:35px;color:var(--muted)}
+.leaderboard{display:grid;grid-template-columns:1fr 1fr;gap:14px}.player{padding:18px;border-radius:14px;background:#f8fafc;border:1px solid var(--line);text-align:center}.player.winner{border:2px solid #f59e0b;background:#fffbeb}.avatar{font-size:38px}.points{font-size:30px;font-weight:900}.rank{font-weight:800}
+.progress{height:9px;background:#e5e7eb;border-radius:10px;overflow:hidden;margin-top:10px}.progress span{display:block;height:100%;background:var(--primary)}
+.reward-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.reward{border:1px solid var(--line);padding:15px;border-radius:13px}.reward h3{margin:0 0 6px}.reward small{color:var(--muted)}
+.calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}.day{min-height:115px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:9px}.day strong{font-size:12px}.day.today{outline:2px solid var(--primary)}.day-task{margin-top:7px;font-size:11px;padding:5px;border-radius:6px;background:#eef2ff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.modal-backdrop{position:fixed;inset:0;background:#0008;display:none;align-items:center;justify-content:center;padding:20px;z-index:20}.modal-backdrop.show{display:flex}.modal{background:#fff;border-radius:18px;width:min(560px,100%);padding:22px;max-height:90vh;overflow:auto}.modal h2{margin-top:0}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.field{display:flex;flex-direction:column;gap:6px}.field.full{grid-column:1/-1}.field label{font-size:13px;font-weight:700}.field input,.field select{padding:11px;border:1px solid #d1d5db;border-radius:9px;background:#fff}.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+.toast{position:fixed;right:20px;bottom:20px;background:#111827;color:#fff;padding:13px 17px;border-radius:11px;display:none;z-index:30}.toast.show{display:block}
+.winner{text-align:center;padding:25px;background:#fffbeb;border:1px solid #fde68a;border-radius:16px;margin-bottom:15px}.winner .crown{font-size:45px}
+.hidden{display:none!important}
+@media(max-width:850px){.grid{grid-template-columns:repeat(2,1fr)}.reward-grid{grid-template-columns:1fr 1fr}.calendar{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.app{padding:14px}header{align-items:flex-start;flex-direction:column}.grid{grid-template-columns:1fr 1fr}.chore{grid-template-columns:1fr}.actions{justify-content:flex-start}.leaderboard,.reward-grid,.form-grid{grid-template-columns:1fr}.field.full{grid-column:auto}.calendar{grid-template-columns:1fr}.day{min-height:auto}}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <div class="brand"><h1>🏠 Our Home</h1><p>House chore tracker for Josh & Lily</p></div>
+  <div class="header-actions">
+    <button class="notification-button" id="notificationButton" onclick="toggleNotifications()">🔔 Enable Notifications</button>
+    <button class="btn" onclick="openChoreModal()">＋ Add Chore</button>
+  </div>
+</header>
+
+<nav class="nav" id="nav">
+  <button data-view="dashboard" onclick="setView('dashboard')">🏠 Dashboard</button>
+  <button data-view="today" onclick="setView('today')">📅 Today</button>
+  <button data-view="chores" onclick="setView('chores')">🧹 Chores</button>
+  <button data-view="calendar" onclick="setView('calendar')">🗓️ Calendar</button>
+  <button data-view="leaderboard" onclick="setView('leaderboard')">🏆 Leaderboard</button>
+  <button data-view="rewards" onclick="setView('rewards')">🎁 Rewards</button>
+  <button data-view="history" onclick="setView('history')">📈 History</button>
+</nav>
+
+<main id="appContent"></main>
+</div>
+
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal">
+    <h2 id="modalTitle">Add Chore</h2>
+    <form id="choreForm">
+      <div class="form-grid">
+        <div class="field full"><label>Chore name</label><input id="choreName" required placeholder="e.g. Clean kitchen"></div>
+        <div class="field"><label>Assigned to</label><select id="chorePerson"><option>Josh</option><option>Lily</option><option>Shared</option></select></div>
+        <div class="field"><label>Points</label><input id="chorePoints" type="number" min="1" value="5" required></div>
+        <div class="field"><label>Due date</label><input id="choreDate" type="date" required></div>
+        <div class="field"><label>Repeat</label><select id="choreRepeat"><option value="none">Does not repeat</option><option value="daily">Every day</option><option value="everyOtherDay">Every other day</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select></div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn secondary" onclick="closeModal()">Cancel</button>
+        <button type="submit" class="btn">Save Chore</button>
+      </div>
+    </form>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const STORAGE_KEY = "ourHomeChoresV1";
+const REWARDS_KEY = "ourHomeRewardsV1";
+const NOTIFY_KEY = "houseNotifications";
+const NOTIFIED_KEY = "notifiedOverdue";
+const HISTORY_KEY = "ourHomeCompletionHistoryV2";
+
+let chores = loadChores();
+let rewards = loadRewards();
+let editingId = null;
+let currentView = "dashboard";
+let notificationPermission = localStorage.getItem(NOTIFY_KEY) || "disabled";
+let notifiedOverdue = loadJSON(NOTIFIED_KEY, []);
+let completionHistory = loadJSON(HISTORY_KEY, []);
+
+const defaultChores = [
+  {id:uid(),name:"Tidy kitchen",assignedTo:"Josh",points:5,dueDate:todayKey(),repeat:"daily",completed:false,completedAt:null},
+  {id:uid(),name:"Laundry",assignedTo:"Lily",points:8,dueDate:todayKey(),repeat:"weekly",completed:false,completedAt:null},
+  {id:uid(),name:"Take bins out",assignedTo:"Josh",points:5,dueDate:todayKey(),repeat:"weekly",completed:false,completedAt:null},
+  {id:uid(),name:"Hoover downstairs",assignedTo:"Lily",points:7,dueDate:todayKey(),repeat:"weekly",completed:false,completedAt:null}
+];
+
+if(!localStorage.getItem(STORAGE_KEY)){ chores = defaultChores; saveChores(); }
+
+// Migrate any previously completed one-off chores into history.
+const MIGRATION_KEY="ourHomeHistoryMigratedV1";
+if(!localStorage.getItem(MIGRATION_KEY)){
+  chores.filter(c=>c.completed&&c.completedAt).forEach(c=>{
+    completionHistory.push({
+      id:uid(),choreId:c.id,choreName:c.name,person:c.assignedTo,
+      points:Number(c.points||0),
+      date:c.completedAt.date||todayKey(),
+      week:c.completedAt.week||weekKey(),
+      completedAt:new Date().toISOString()
+    });
+  });
+  saveHistory();
+  localStorage.setItem(MIGRATION_KEY,"true");
+}
+
+
+
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2); }
+function loadJSON(key,fallback){try{return JSON.parse(localStorage.getItem(key)) ?? fallback}catch(e){return fallback}}
+function loadChores(){return loadJSON(STORAGE_KEY,[])}
+function saveChores(){localStorage.setItem(STORAGE_KEY,JSON.stringify(chores))}
+function loadRewards(){return loadJSON(REWARDS_KEY,[
+  {id:uid(),name:"Choose tonight's film",cost:30,icon:"🎬"},
+  {id:uid(),name:"Pick the takeaway",cost:50,icon:"🍕"},
+  {id:uid(),name:"Lie-in voucher",cost:75,icon:"😴"}
+])}
+function saveRewards(){localStorage.setItem(REWARDS_KEY,JSON.stringify(rewards))}
+function saveHistory(){localStorage.setItem(HISTORY_KEY,JSON.stringify(completionHistory))}
+function pad(n){return String(n).padStart(2,"0")}
+function dateKey(d){return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())}
+function todayKey(){return dateKey(new Date())}
+function parseDate(s){const [y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d)}
+function formatDate(s){if(!s)return "No date";return parseDate(s).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}
+function startOfWeek(d){const x=new Date(d);const day=x.getDay();const diff=day===0?-6:1-day;x.setDate(x.getDate()+diff);x.setHours(0,0,0,0);return x}
+function weekKey(){return dateKey(startOfWeek(new Date()))}
+function showToast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");clearTimeout(showToast.timer);showToast.timer=setTimeout(()=>t.classList.remove("show"),2800)}
+
+function getStatus(chore){
+  if(chore.completed) return {text:"✓ Complete",cls:"done"};
+  if(chore.dueDate < todayKey()) return {text:"🔴 Overdue",cls:"overdue"};
+  if(chore.dueDate === todayKey()) return {text:"Today",cls:"today"};
+  return {text:"Upcoming",cls:""};
+}
+
+function render(){
+  document.querySelectorAll("#nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===currentView));
+  const content=document.getElementById("appContent");
+  if(currentView==="dashboard") content.innerHTML=dashboardHTML();
+  if(currentView==="today") content.innerHTML=listHTML("today");
+  if(currentView==="chores") content.innerHTML=listHTML("all");
+  if(currentView==="calendar") content.innerHTML=calendarHTML();
+  if(currentView==="leaderboard") content.innerHTML=leaderboardHTML();
+  if(currentView==="rewards") content.innerHTML=rewardsHTML();
+  if(currentView==="history") content.innerHTML=historyPageHTML();
+  updateNotificationButton();
+  updateNotificationBadge();
+}
+function setView(view){currentView=view;render()}
+
+function dashboardHTML(){
+  const today=chores.filter(c=>c.dueDate===todayKey()&&!c.completed).length;
+  const overdue=chores.filter(c=>getStatus(c).cls==="overdue").length;
+  const completed=chores.filter(c=>c.completed).length;
+  const points=weeklyPoints("Josh")+weeklyPoints("Lily");
+  return `<div class="grid">
+    <div class="stat"><div class="label">Today's chores</div><div class="value">${today}</div></div>
+    <div class="stat"><div class="label">Overdue</div><div class="value">${overdue}</div></div>
+    <div class="stat"><div class="label">Completed</div><div class="value">${completed}</div></div>
+    <div class="stat"><div class="label">Weekly points</div><div class="value">⭐ ${points}</div></div>
+  </div>
+  <div class="card">
+    <div class="section-title"><h2>🧹 Next up</h2><button class="btn" onclick="setView('today')">View Today</button></div>
+    ${choreListHTML(chores.filter(c=>!c.completed).sort(sortChores).slice(0,5))}
+  </div>
+  <div class="card" style="margin-top:15px">${winnerHTML()}</div>
+  <div class="card" style="margin-top:15px">
+    <div class="section-title"><h2>📈 Recent Completion History</h2><span>${completionHistory.length} total</span></div>
+    ${historyHTML(8)}
+  </div>`;
+}
+
+function listHTML(mode){
+  let list=mode==="today"
+    ? chores.filter(c=>c.dueDate===todayKey()&&!c.completed)
+    : [...chores].sort(sortChores);
+  return `<div class="card"><div class="section-title"><h2>${mode==="today"?"📅 Today's Chores":"🧹 All Chores"}</h2><button class="btn" onclick="openChoreModal()">＋ Add Chore</button></div>
+  ${mode==="today" && !list.length ? '<div class="empty">🎉 Nothing due today!</div>' : choreListHTML(list)}</div>`;
+}
+function sortChores(a,b){return a.completed-b.completed || a.dueDate.localeCompare(b.dueDate)}
+function choreListHTML(list){
+  if(!list.length)return '<div class="empty">No chores here yet.</div>';
+  return `<div class="chores">${list.map(chore=>{
+    const s=getStatus(chore);
+    return `<div class="chore ${chore.completed?"done":""}">
+      <div class="chore-main">
+        <div class="chore-title">${escapeHTML(chore.name)}</div>
+        <div class="meta">
+          <span class="badge">${chore.assignedTo==="Shared"?"👨‍👩‍👧 Shared":"👤 "+chore.assignedTo}</span>
+          <span class="badge ${s.cls}">${s.text}</span>
+          <span>📅 ${formatDate(chore.dueDate)}</span>
+          <span>⭐ ${chore.points}</span>
+          ${chore.repeat!=="none"?`<span>🔄 ${capitalise(chore.repeat)}</span>`:""}
+        </div>
+      </div>
+      <div class="actions">
+        ${!chore.completed?`<button class="icon-btn" onclick="completeChore('${chore.id}')">✅ Complete</button>`:`<button class="icon-btn" onclick="undoChore('${chore.id}')">↩ Undo</button>`}
+        <button class="icon-btn" onclick="openChoreModal('${chore.id}')">✏️ Edit</button>
+        <button class="icon-btn" onclick="deleteChore('${chore.id}')">🗑️</button>
+      </div>
+    </div>`;
+  }).join("")}</div>`;
+}
+
+function historyHTML(limit=20){
+  const rows=[...completionHistory].sort((a,b)=>new Date(b.completedAt)-new Date(a.completedAt)).slice(0,limit);
+  if(!rows.length)return '<div class="empty">No completed chores yet.</div>';
+  return `<div class="chores">${rows.map(h=>`<div class="chore">
+    <div class="chore-main">
+      <div class="chore-title">✓ ${escapeHTML(h.choreName)}</div>
+      <div class="meta">
+        <span class="badge">${h.person}</span>
+        <span>📅 ${formatDate(h.date)}</span>
+        <span>⭐ ${h.points}</span>
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--muted)">Week of ${formatDate(h.week)}</div>
+  </div>`).join("")}</div>`;
+}
+
+function calendarHTML(){
+  const start=startOfWeek(new Date());
+  let days="";
+  for(let i=0;i<14;i++){
+    const d=new Date(start);d.setDate(start.getDate()+i);
+    const key=dateKey(d);
+    const dayChores=chores.filter(c=>c.dueDate===key);
+    days+=`<div class="day ${key===todayKey()?"today":""}">
+      <strong>${d.toLocaleDateString("en-GB",{weekday:"short"})} ${d.getDate()} ${d.toLocaleDateString("en-GB",{month:"short"})}</strong>
+      ${dayChores.length?dayChores.map(c=>`<div class="day-task" title="${escapeHTML(c.name)}">${c.completed?"✓ ":""}${escapeHTML(c.name)}</div>`).join(""):'<div style="color:#9ca3af;font-size:11px;margin-top:8px">—</div>'}
+    </div>`;
+  }
+  return `<div class="card"><div class="section-title"><h2>🗓️ Chore Calendar</h2><button class="btn" onclick="openChoreModal()">＋ Add Chore</button></div><p style="color:var(--muted)">Dates are used to align chores with your weekly schedule. The calendar shows the next two weeks.</p><div class="calendar">${days}</div></div>`;
+}
+
+function weeklyPoints(person){
+  const wk=weekKey();
+  return completionHistory
+    .filter(h=>h.person===person && h.week===wk)
+    .reduce((sum,h)=>sum+Number(h.points||0),0);
+}
+function streak(person){
+  const completedDates = new Set(
+    completionHistory
+      .filter(h=>h.person===person)
+      .map(h=>h.date)
+  );
+
+  let current=0;
+  const d=new Date();
+
+  while(completedDates.has(dateKey(d))){
+    current++;
+    d.setDate(d.getDate()-1);
+  }
+
+  return current;
+}
+function winnerHTML(){
+  const j=weeklyPoints("Josh"),l=weeklyPoints("Lily");
+  let text="It's a tie! 🤝",who="";
+  if(j>l){text="Josh is this week's winner! 🏆";who="Josh"}
+  if(l>j){text="Lily is this week's winner! 🏆";who="Lily"}
+  return `<div class="winner"><div class="crown">🏆</div><h2>${text}</h2><p>Josh: <strong>${j} pts</strong> &nbsp; vs &nbsp; Lily: <strong>${l} pts</strong></p>${who?`<p>Keep it going — the leaderboard resets each week.</p>`:""}</div>`;
+}
+function leaderboardHTML(){
+  const j=weeklyPoints("Josh"),l=weeklyPoints("Lily"),max=Math.max(j,l,1);
+  return `<div class="card">${winnerHTML()}<div class="section-title"><h2>🏆 Weekly Leaderboard</h2><span style="color:var(--muted)">Week starting ${formatDate(weekKey())}</span></div>
+    <div class="leaderboard">
+      ${playerCard("Josh","👨",j,max,j>=l)}
+      ${playerCard("Lily","👩",l,max,l>=j)}
+    </div>
+    <div class="card" style="margin-top:15px;background:#f8fafc">
+      <h3>🔥 Streaks</h3>
+      <p>Josh: <strong>${streak("Josh")} day${streak("Josh")===1?"":"s"}</strong> &nbsp; | &nbsp; Lily: <strong>${streak("Lily")} day${streak("Lily")===1?"":"s"}</strong></p>
+      <p style="color:var(--muted)">🏅 Lifetime completions — Josh: ${completionHistory.filter(h=>h.person==="Josh").length} &nbsp; | &nbsp; Lily: ${completionHistory.filter(h=>h.person==="Lily").length}</p>
+    </div>
+  </div>`;
+}
+function playerCard(name,avatar,points,max,winner){
+  return `<div class="player ${winner&&points>0?"winner":""}"><div class="avatar">${avatar}</div><div class="rank">${winner&&points>0?"🏆 ":""}${name}</div><div class="points">${points}</div><div>points this week</div><div class="progress"><span style="width:${Math.round(points/max*100)}%"></span></div></div>`;
+}
+function historyPageHTML(){
+  const total=completionHistory.length;
+  const j=completionHistory.filter(h=>h.person==="Josh").reduce((s,h)=>s+Number(h.points||0),0);
+  const l=completionHistory.filter(h=>h.person==="Lily").reduce((s,h)=>s+Number(h.points||0),0);
+
+  return `<div class="grid">
+    <div class="stat"><div class="label">Total completions</div><div class="value">${total}</div></div>
+    <div class="stat"><div class="label">Josh lifetime points</div><div class="value">⭐ ${j}</div></div>
+    <div class="stat"><div class="label">Lily lifetime points</div><div class="value">⭐ ${l}</div></div>
+    <div class="stat"><div class="label">This week's winner</div><div class="value">${weeklyPoints("Josh")===weeklyPoints("Lily")?"🤝":weeklyPoints("Josh")>weeklyPoints("Lily")?"Josh":"Lily"}</div></div>
+  </div>
+  <div class="card">
+    <div class="section-title"><h2>📈 Completion History</h2><span>Permanent records</span></div>
+    ${historyHTML(100)}
+  </div>`;
+}
+
+function rewardsHTML(){
+  const j=weeklyPoints("Josh"),l=weeklyPoints("Lily");
+  return `<div class="card"><div class="section-title"><h2>🎁 Rewards Shop</h2><span>Spend weekly points</span></div><div class="reward-grid">${rewards.map(r=>`<div class="reward"><div style="font-size:34px">${r.icon}</div><h3>${escapeHTML(r.name)}</h3><small>Costs ⭐ ${r.cost}</small><br><button class="btn" style="margin-top:10px" onclick="buyReward('${r.id}')">Redeem</button></div>`).join("")}</div><p style="color:var(--muted);margin-top:18px">Available this week — Josh: ⭐ ${availablePoints("Josh")} &nbsp; | &nbsp; Lily: ⭐ ${availablePoints("Lily")}</p></div>`;
+}
+
+function openChoreModal(id=null){
+  editingId=id;
+  const chore=id?chores.find(c=>c.id===id):null;
+  document.getElementById("modalTitle").textContent=id?"Edit Chore":"Add Chore";
+  document.getElementById("choreName").value=chore?.name||"";
+  document.getElementById("chorePerson").value=chore?.assignedTo||"Josh";
+  document.getElementById("chorePoints").value=chore?.points||5;
+  document.getElementById("choreDate").value=chore?.dueDate||todayKey();
+  document.getElementById("choreRepeat").value=chore?.repeat||"none";
+  document.getElementById("modalBackdrop").classList.add("show");
+  setTimeout(()=>document.getElementById("choreName").focus(),50);
+}
+function closeModal(){document.getElementById("modalBackdrop").classList.remove("show");editingId=null}
+document.getElementById("choreForm").addEventListener("submit",e=>{
+  e.preventDefault();
+  const data={
+    name:document.getElementById("choreName").value.trim(),
+    assignedTo:document.getElementById("chorePerson").value,
+    points:Number(document.getElementById("chorePoints").value),
+    dueDate:document.getElementById("choreDate").value,
+    repeat:document.getElementById("choreRepeat").value
+  };
+  if(!data.name||!data.dueDate)return;
+  if(editingId){
+    const c=chores.find(x=>x.id===editingId);
+    Object.assign(c,data);
+    showToast("✏️ Chore updated");
+  }else{
+    chores.push({id:uid(),...data,completed:false,completedAt:null});
+    showToast("🧹 Chore added");
+  }
+  saveChores();closeModal();render();
+});
+
+function completeChore(id){
+  const c=chores.find(x=>x.id===id);
+  if(!c)return;
+
+  const completedDate=todayKey();
+  const points=Number(c.points||0);
+
+  // Keep a permanent completion record.
+  completionHistory.push({
+    id:uid(),
+    choreId:c.id,
+    choreName:c.name,
+    person:c.assignedTo,
+    points:points,
+    date:completedDate,
+    week:weekKey(),
+    completedAt:new Date().toISOString()
+  });
+
+  saveHistory();
+
+  if(c.repeat!=="none"){
+    c.completed=false;
+    c.completedAt=null;
+    c.dueDate=nextDueDate(c.dueDate,c.repeat);
+
+    showToast(
+      `🔄 ${c.name} completed — next due ${formatDate(c.dueDate)}`
+    );
+  }else{
+    c.completed=true;
+    c.completedAt={
+      date:completedDate,
+      week:weekKey()
+    };
+
+    showToast(`⭐ ${points} points earned!`);
+  }
+
+  saveChores();
+  render();
+}
+function undoChore(id){const c=chores.find(x=>x.id===id);if(c){c.completed=false;c.completedAt=null;saveChores();render();}}
+function nextDueDate(date,repeat){
+  const d=parseDate(date);
+  if(repeat==="daily")d.setDate(d.getDate()+1);
+  if(repeat==="everyOtherDay")d.setDate(d.getDate()+2);
+  if(repeat==="weekly")d.setDate(d.getDate()+7);
+  if(repeat==="monthly")d.setMonth(d.getMonth()+1);
+  return dateKey(d);
+}
+function deleteChore(id){
+  const c=chores.find(x=>x.id===id);
+  if(!c)return;
+  if(confirm(`Delete "${c.name}"?`)){chores=chores.filter(x=>x.id!==id);saveChores();showToast("🗑️ Chore deleted");render();}
+}
+const REDEMPTIONS_KEY = "ourHomeRewardRedemptionsV1";
+let rewardRedemptions = loadJSON(REDEMPTIONS_KEY, []);
+
+function saveRedemptions(){
+  localStorage.setItem(REDEMPTIONS_KEY,JSON.stringify(rewardRedemptions));
+}
+
+function spentThisWeek(person){
+  return rewardRedemptions
+    .filter(r=>r.person===person && r.week===weekKey())
+    .reduce((sum,r)=>sum+Number(r.cost||0),0);
+}
+
+function availablePoints(person){
+  return Math.max(0,weeklyPoints(person)-spentThisWeek(person));
+}
+
+function buyReward(id){
+  const r=rewards.find(x=>x.id===id);
+  if(!r)return;
+
+  const person=prompt(`Who is redeeming "${r.name}"? Enter Josh or Lily.`);
+  if(!person||!["Josh","Lily"].includes(person))return;
+
+  const available=availablePoints(person);
+
+  if(available<r.cost){
+    showToast(`❌ ${person} needs ${r.cost-available} more available points.`);
+    return;
+  }
+
+  rewardRedemptions.push({
+    id:uid(),
+    rewardId:r.id,
+    rewardName:r.name,
+    person:person,
+    cost:Number(r.cost),
+    week:weekKey(),
+    date:todayKey(),
+    redeemedAt:new Date().toISOString()
+  });
+
+  saveRedemptions();
+  showToast(`🎁 ${person} redeemed ${r.name}!`);
+  render();
+}
+function capitalise(s){return s.charAt(0).toUpperCase()+s.slice(1)}
+function escapeHTML(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
+
+/* Notifications */
+async function enableNotifications(){
+  if(!("Notification" in window)){showToast("❌ Browser notifications aren't supported.");return;}
+  try{
+    const permission=await Notification.requestPermission();
+    if(permission==="granted"){
+      notificationPermission="enabled";localStorage.setItem(NOTIFY_KEY,"enabled");
+      updateNotificationButton();showToast("🔔 Notifications enabled!");
+      new Notification("🏠 Our Home",{body:"Notifications are now enabled."});
+      checkOverdueChores();
+    }else{
+      notificationPermission="disabled";localStorage.setItem(NOTIFY_KEY,"disabled");
+      updateNotificationButton();showToast("🔕 Notifications are disabled.");
+    }
+  }catch(e){console.error(e);showToast("❌ Unable to enable notifications.");}
+}
+function toggleNotifications(){
+  if(notificationPermission==="enabled"){
+    notificationPermission="disabled";localStorage.setItem(NOTIFY_KEY,"disabled");
+    updateNotificationButton();showToast("🔕 Notifications switched off.");
+  }else enableNotifications();
+}
+function updateNotificationButton(){
+  const b=document.getElementById("notificationButton");if(!b)return;
+  const on=notificationPermission==="enabled"&&"Notification"in window&&Notification.permission==="granted";
+  b.innerHTML=on?"🔔 Notifications ON":"🔔 Enable Notifications";
+  b.classList.toggle("enabled",on);
+  b.classList.toggle("warning","Notification"in window&&Notification.permission==="denied");
+  updateNotificationBadge();
+}
+function checkOverdueChores(){
+  if(notificationPermission!=="enabled"||!("Notification"in window)||Notification.permission!=="granted")return;
+  const today=todayKey();
+  chores.filter(c=>!c.completed&&c.dueDate<today).forEach(c=>{
+    const key=`${c.id}-${today}`;
+    if(notifiedOverdue.includes(key))return;
+    try{new Notification("🚨 Overdue Chore",{body:`${c.name} is overdue for ${c.assignedTo==="Shared"?"the household":c.assignedTo}.`,tag:`overdue-${c.id}`});}catch(e){}
+    notifiedOverdue.push(key);
+  });
+  notifiedOverdue=notifiedOverdue.slice(-100);
+  localStorage.setItem(NOTIFIED_KEY,JSON.stringify(notifiedOverdue));
+  updateNotificationBadge();
+}
+function updateNotificationBadge(){
+  const b=document.getElementById("notificationButton");if(!b)return;
+  const old=b.querySelector(".notification-badge");if(old)old.remove();
+  const count=chores.filter(c=>getStatus(c).cls==="overdue").length;
+  if(count){const badge=document.createElement("span");badge.className="notification-badge";badge.textContent=count;b.appendChild(badge);}
+}
+setInterval(checkOverdueChores,60000);
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"){checkOverdueChores();render();}});
+
+document.getElementById("modalBackdrop").addEventListener("click",e=>{if(e.target.id==="modalBackdrop")closeModal()});
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal()});
+
+render();
+setTimeout(checkOverdueChores,800);
+</script>
+</body>
+</html>
