@@ -234,6 +234,9 @@ async function initialiseCloudForUser(user){
    const profileSnap=await window.fs.getDoc(profileRef);
    if(profileSnap.exists()&&profileSnap.data().householdId){
      householdId=profileSnap.data().householdId;
+     // Always run the household seeding check when an existing user logs in.
+     // This adds any newly introduced starter rewards without duplicating existing ones.
+     await seedHousehold();
      await finishHouseholdLoad();
    }else{
      document.getElementById("householdScreen").classList.remove("hidden");
