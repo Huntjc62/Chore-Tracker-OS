@@ -62,107 +62,6 @@ header{display:flex;justify-content:space-between;align-items:center;gap:16px;ma
 <meta name="apple-mobile-web-app-title" content="Our Home">
 <link rel="apple-touch-icon" href="./our-home-icons/icon-180.png">
 
-
-<script>
-/* =========================================================
-   OUR HOME - SHARED REWARDS V5
-   ========================================================= */
-const OUR_HOME_SHARED_REWARDS = [
-  { name: "Gaming / Me Time", cost: 100, icon: "🎮", assignedTo: "Shared" },
-  { name: "£20 Present", cost: 200, icon: "🎁", assignedTo: "Shared" },
-  { name: "Dinner Out", cost: 250, icon: "🍽️", assignedTo: "Shared" },
-  { name: "Dinner In", cost: 100, icon: "🍝", assignedTo: "Shared" },
-  { name: "Lazy Morning", cost: 80, icon: "☕", assignedTo: "Shared" },
-  { name: "Spa & Relax Night", cost: 300, icon: "🧖", assignedTo: "Shared" },
-  { name: "Wishlist Purchase", cost: 200, icon: "🛍️", assignedTo: "Shared" },
-  { name: "Choose Tonight's Film/Show", cost: 75, icon: "📺", assignedTo: "Shared" },
-  { name: "Lie-In Voucher", cost: 100, icon: "😴", assignedTo: "Shared" },
-  { name: "Cinema Day/Night", cost: 150, icon: "🎬", assignedTo: "Shared" },
-  { name: "No Chores Day Pass", cost: 175, icon: "🧹", assignedTo: "Shared" },
-  { name: "Pick the Weekend Activity", cost: 150, icon: "🎯", assignedTo: "Shared" }
-];
-</script>
-
-
-<script>
-async function syncOurHomeSharedRewards(){
-  if(typeof db === "undefined" || typeof householdId === "undefined" || !householdId) return;
-  try {
-    const rewardsRef = collection(db, "households", householdId, "rewards");
-    const snap = await getDocs(rewardsRef);
-    const byName = new Map();
-    snap.docs.forEach(d => {
-      const data = d.data();
-      if(data.name) byName.set(data.name, d);
-    });
-
-    // Remove the retired reward.
-    const retired = byName.get("REMOVED_REWARD_DO_NOT_USE");
-    if(retired) await deleteDoc(retired.ref);
-
-    for(const reward of OUR_HOME_SHARED_REWARDS){
-      const existing = byName.get(reward.name);
-      const payload = {
-        name: reward.name,
-        cost: reward.cost,
-        points: reward.cost,
-        icon: reward.icon,
-        assignedTo: "Shared",
-        forPerson: "Shared",
-        person: "Shared",
-        updatedAt: serverTimestamp()
-      };
-      if(existing){
-        await updateDoc(existing.ref, payload);
-      } else {
-        await addDoc(rewardsRef, {
-          ...payload,
-          createdAt: serverTimestamp()
-        });
-      }
-    }
-  } catch(err) {
-    console.error("Rewards sync failed:", err);
-  }
-}
-</script>
-
-
-<script>
-async function redeemOurHomeReward(reward, redeemerUid){
-  if(typeof db === "undefined" || typeof householdId === "undefined" || !householdId)
-    throw new Error("Household is not ready.");
-
-  const cost = Number(reward.cost ?? reward.points ?? 0);
-  const uid = redeemerUid || (typeof currentUser !== "undefined" && currentUser ? currentUser.uid : null);
-  if(!uid) throw new Error("You must be signed in.");
-
-  const memberRef = doc(db, "households", householdId, "members", uid);
-  const memberSnap = await getDoc(memberRef);
-  if(!memberSnap.exists()) throw new Error("Household member not found.");
-
-  const balance = Number(memberSnap.data().points || 0);
-  if(balance < cost) {
-    throw new Error(`INSUFFICIENT_POINTS:${cost - balance}`);
-  }
-
-  await updateDoc(memberRef, {
-    points: balance - cost,
-    updatedAt: serverTimestamp()
-  });
-
-  await addDoc(collection(db, "households", householdId, "redemptions"), {
-    rewardId: reward.id || null,
-    rewardName: reward.name,
-    cost,
-    redeemerUid: uid,
-    createdAt: serverTimestamp()
-  });
-
-  return balance - cost;
-}
-</script>
-
 </head>
 <body>
 
@@ -338,7 +237,6 @@ async function initialiseCloudForUser(user){
      // Always run the household seeding check when an existing user logs in.
      // This adds any newly introduced starter rewards without duplicating existing ones.
      await seedHousehold();
-     await syncOurHomeSharedRewards();
      await finishHouseholdLoad();
    }else{
      document.getElementById("householdScreen").classList.remove("hidden");
@@ -386,24 +284,46 @@ async function seedHousehold(){
 
   // Starter rewards are added automatically to every household.
   // "owner" controls who the reward is intended for; "Shared" can be redeemed by either person.
-  const defaultRewards=OUR_HOME_SHARED_REWARDS;
+  const defaultRewards=[
+    {name:"Gaming / Me Time",cost:100,icon:"🎮",owner:"Shared"},
+    {name:"£20 Present",cost:200,icon:"🎁",owner:"Shared"},
+    {name:"Dinner Out",cost:250,icon:"🍽️",owner:"Shared"},
+    {name:"Dinner In",cost:100,icon:"🍝",owner:"Shared"},
+    {name:"Lazy Morning",cost:80,icon:"☕",owner:"Shared"},
+    {name:"Spa & Relax Night",cost:300,icon:"🧖‍♀️",owner:"Shared"},
+    {name:"Wishlist Purchase",cost:200,icon:"🛍️",owner:"Shared"},
+    {name:"Choose Tonight's Film/Show",cost:75,icon:"📺",owner:"Shared"},
+    {name:"Lie-In Voucher",cost:100,icon:"😴",owner:"Shared"},
+    {name:"Cinema Day/Night",cost:150,icon:"🎬",owner:"Shared"},
+    {name:"No Chores Day Pass",cost:175,icon:"🧹",owner:"Shared"},
+    {name:"Pick the Weekend Activity",cost:150,icon:"🎯",owner:"Shared"}
+  ];
+
+  const rewardNames=new Set(defaultRewards.map(r=>r.name.toLowerCase()));
+  const existingByName=new Map(rewardSnap.docs.map(d=>[String(d.data().name||"").toLowerCase(),d]));
+
+  // Remove the old reward and update all existing starter rewards to the new shared list/prices.
+  for(const d of rewardSnap.docs){
+    const name=String(d.data().name||"");
+    if(name.toLowerCase()==="choose the takeaway"){
+      await window.fs.deleteDoc(d.ref);
+    }
+  }
 
   if(rewardSnap.empty){
-    const seedRewards=localRewards.length
-      ? localRewards.map(r=>({...r,owner:r.owner||"Shared"}))
-      : defaultRewards.map(r=>({...r,id:uid()}));
-
-    for(const r of seedRewards){
+    for(const r of defaultRewards){
+      const id=uid();
       await window.fs.setDoc(
-        window.fs.doc(window.firebaseDb,"households",householdId,"rewards",r.id||uid()),
-        {...r,id:r.id||uid()}
+        window.fs.doc(window.firebaseDb,"households",householdId,"rewards",id),
+        {...r,id}
       );
     }
   }else{
-    // Add any new starter rewards that aren't already in this household.
-    const existingNames=new Set(rewardSnap.docs.map(d=>String(d.data().name||"").toLowerCase()));
     for(const r of defaultRewards){
-      if(!existingNames.has(r.name.toLowerCase())){
+      const existing=existingByName.get(r.name.toLowerCase());
+      if(existing){
+        await window.fs.setDoc(existing.ref,{...existing.data(),...r,id:existing.id},{merge:true});
+      }else{
         const id=uid();
         await window.fs.setDoc(
           window.fs.doc(window.firebaseDb,"households",householdId,"rewards",id),
@@ -480,26 +400,21 @@ function leaderboardHTML(){const j=weeklyPoints("Josh"),l=weeklyPoints("Lily"),m
 function playerCard(name,avatar,points,max,winner){return `<div class="player ${winner&&points>0?"winner":""}"><div class="avatar">${avatar}</div><div class="rank">${winner&&points>0?"🏆 ":""}${name}</div><div class="points">${points}</div><div>points this week</div><div class="progress"><span style="width:${Math.round(points/max*100)}%"></span></div></div>`}
 function historyPageHTML(){const total=completionHistory.length,j=completionHistory.filter(h=>h.person==="Josh").reduce((s,h)=>s+Number(h.points||0),0),l=completionHistory.filter(h=>h.person==="Lily").reduce((s,h)=>s+Number(h.points||0),0);return `<div class="grid"><div class="stat"><div class="label">Total completions</div><div class="value">${total}</div></div><div class="stat"><div class="label">Josh lifetime points</div><div class="value">⭐ ${j}</div></div><div class="stat"><div class="label">Lily lifetime points</div><div class="value">⭐ ${l}</div></div><div class="stat"><div class="label">This week's winner</div><div class="value">${weeklyPoints("Josh")===weeklyPoints("Lily")?"🤝":weeklyPoints("Josh")>weeklyPoints("Lily")?"Josh":"Lily"}</div></div></div><div class="card"><div class="section-title"><h2>📈 Completion History</h2><span>Cloud records</span></div>${historyHTML(100)}</div>`}
 function rewardsHTML(){
- const order={Josh:1,Lily:2,Shared:3};
- const sorted=[...rewards].sort((a,b)=>(order[a.owner||"Shared"]||9)-(order[b.owner||"Shared"]||9)||Number(a.cost)-Number(b.cost));
+ const sorted=[...rewards].filter(r=>r.name!=="Choose the Takeaway").sort((a,b)=>Number(a.cost)-Number(b.cost));
  return `<div class="card">
-   <div class="section-title"><h2>🎁 Rewards Shop</h2><span>Spend weekly points</span></div>
+   <div class="section-title"><h2>🎁 Rewards Shop</h2><span>Shared household rewards</span></div>
    <div class="grid" style="margin-bottom:18px">
      <div class="stat"><div class="label">Josh available</div><div class="value">⭐ ${availablePoints("Josh")}</div></div>
      <div class="stat"><div class="label">Lily available</div><div class="value">⭐ ${availablePoints("Lily")}</div></div>
    </div>
-   <div class="reward-grid">${sorted.map(r=>{
-      const owner=r.owner||"Shared";
-      const ownerLabel=owner==="Shared"?"👫 Shared":owner==="Josh"?"👨 Josh's reward":"👩 Lily's reward";
-      return `<div class="reward">
+   <div class="reward-grid">${sorted.map(r=>`<div class="reward">
         <div style="font-size:34px">${r.icon}</div>
-        <div style="font-size:11px;font-weight:800;color:var(--muted);margin-top:4px">${ownerLabel}</div>
+        <div style="font-size:11px;font-weight:800;color:var(--muted);margin-top:4px">👫 Shared</div>
         <h3>${escapeHTML(r.name)}</h3>
         <small>Costs ⭐ ${r.cost}</small><br>
         <button class="btn" style="margin-top:10px" onclick="buyReward('${r.id}')">Redeem</button>
-      </div>`;
-   }).join("")}</div>
-   <p style="color:var(--muted);margin-top:18px">Rewards marked Josh or Lily are for that person. Shared rewards can be redeemed by either.</p>
+      </div>`).join("")}</div>
+   <p style="color:var(--muted);margin-top:18px">All rewards are shared. Either Josh or Lily can redeem any reward using their available weekly points.</p>
  </div>`
 }
 
@@ -514,20 +429,17 @@ function spentThisWeek(person){return rewardRedemptions.filter(r=>r.person===per
 function availablePoints(person){return Math.max(0,weeklyPoints(person)-spentThisWeek(person))}
 async function buyReward(id){
  const r=rewards.find(x=>x.id===id);if(!r)return;
- const owner=r.owner||"Shared";
- let person=owner;
- if(owner==="Shared"){
-   person=prompt(`Who is redeeming "${r.name}"? Enter Josh or Lily.`);
-   if(!person||!["Josh","Lily"].includes(person))return;
- }else{
-   if(!confirm(`${owner} is redeeming "${r.name}". Continue?`))return;
- }
- const available=availablePoints(person);
- if(available<Number(r.cost)){showToast(`❌ ${person} needs ${Number(r.cost)-available} more available points.`);return}
+ const person=prompt(`Who is redeeming "${r.name}"? Enter Josh or Lily.`);
+ if(!person||!["Josh","Lily"].includes(person.trim()))return;
+ const redeemer=person.trim();
+ const available=availablePoints(redeemer);
+ const cost=Number(r.cost||0);
+ if(available<cost){showToast(`❌ ${redeemer} needs ${cost-available} more ⭐.`);return}
+ if(!confirm(`Redeem ${r.name} for ${cost} ⭐ using ${redeemer}'s points?`))return;
  try{
-   const redemption={id:uid(),rewardId:r.id,rewardName:r.name,person,cost:Number(r.cost),owner,week:weekKey(),date:todayKey(),redeemedAt:new Date().toISOString()};
+   const redemption={id:uid(),rewardId:r.id,rewardName:r.name,person:redeemer,cost,owner:"Shared",week:weekKey(),date:todayKey(),redeemedAt:new Date().toISOString()};
    await window.fs.setDoc(redemptionRef(redemption.id),redemption);
-   showToast(`🎁 ${person} redeemed ${r.name}!`);
+   showToast(`🎁 ${redeemer} redeemed ${r.name} for ${cost} ⭐!`);
  }catch(err){console.error(err);showToast("❌ Could not redeem reward")}
 }
 function showHouseholdInfo(){if(!householdData)return;const code=householdData.inviteCode||"Not available";alert(`🏠 ${householdData.name||"Our Home"}\n\nInvite code:\n${code}\n\nGive this code to Lily so she can join the same household on her device.`)}
