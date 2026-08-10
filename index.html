@@ -62,6 +62,107 @@ header{display:flex;justify-content:space-between;align-items:center;gap:16px;ma
 <meta name="apple-mobile-web-app-title" content="Our Home">
 <link rel="apple-touch-icon" href="./our-home-icons/icon-180.png">
 
+
+<script>
+/* =========================================================
+   OUR HOME - SHARED REWARDS V5
+   ========================================================= */
+const OUR_HOME_SHARED_REWARDS = [
+  { name: "Gaming / Me Time", cost: 100, icon: "🎮", assignedTo: "Shared" },
+  { name: "£20 Present", cost: 200, icon: "🎁", assignedTo: "Shared" },
+  { name: "Dinner Out", cost: 250, icon: "🍽️", assignedTo: "Shared" },
+  { name: "Dinner In", cost: 100, icon: "🍝", assignedTo: "Shared" },
+  { name: "Lazy Morning", cost: 80, icon: "☕", assignedTo: "Shared" },
+  { name: "Spa & Relax Night", cost: 300, icon: "🧖", assignedTo: "Shared" },
+  { name: "Wishlist Purchase", cost: 200, icon: "🛍️", assignedTo: "Shared" },
+  { name: "Choose Tonight's Film/Show", cost: 75, icon: "📺", assignedTo: "Shared" },
+  { name: "Lie-In Voucher", cost: 100, icon: "😴", assignedTo: "Shared" },
+  { name: "Cinema Day/Night", cost: 150, icon: "🎬", assignedTo: "Shared" },
+  { name: "No Chores Day Pass", cost: 175, icon: "🧹", assignedTo: "Shared" },
+  { name: "Pick the Weekend Activity", cost: 150, icon: "🎯", assignedTo: "Shared" }
+];
+</script>
+
+
+<script>
+async function syncOurHomeSharedRewards(){
+  if(typeof db === "undefined" || typeof householdId === "undefined" || !householdId) return;
+  try {
+    const rewardsRef = collection(db, "households", householdId, "rewards");
+    const snap = await getDocs(rewardsRef);
+    const byName = new Map();
+    snap.docs.forEach(d => {
+      const data = d.data();
+      if(data.name) byName.set(data.name, d);
+    });
+
+    // Remove the retired reward.
+    const retired = byName.get("REMOVED_REWARD_DO_NOT_USE");
+    if(retired) await deleteDoc(retired.ref);
+
+    for(const reward of OUR_HOME_SHARED_REWARDS){
+      const existing = byName.get(reward.name);
+      const payload = {
+        name: reward.name,
+        cost: reward.cost,
+        points: reward.cost,
+        icon: reward.icon,
+        assignedTo: "Shared",
+        forPerson: "Shared",
+        person: "Shared",
+        updatedAt: serverTimestamp()
+      };
+      if(existing){
+        await updateDoc(existing.ref, payload);
+      } else {
+        await addDoc(rewardsRef, {
+          ...payload,
+          createdAt: serverTimestamp()
+        });
+      }
+    }
+  } catch(err) {
+    console.error("Rewards sync failed:", err);
+  }
+}
+</script>
+
+
+<script>
+async function redeemOurHomeReward(reward, redeemerUid){
+  if(typeof db === "undefined" || typeof householdId === "undefined" || !householdId)
+    throw new Error("Household is not ready.");
+
+  const cost = Number(reward.cost ?? reward.points ?? 0);
+  const uid = redeemerUid || (typeof currentUser !== "undefined" && currentUser ? currentUser.uid : null);
+  if(!uid) throw new Error("You must be signed in.");
+
+  const memberRef = doc(db, "households", householdId, "members", uid);
+  const memberSnap = await getDoc(memberRef);
+  if(!memberSnap.exists()) throw new Error("Household member not found.");
+
+  const balance = Number(memberSnap.data().points || 0);
+  if(balance < cost) {
+    throw new Error(`INSUFFICIENT_POINTS:${cost - balance}`);
+  }
+
+  await updateDoc(memberRef, {
+    points: balance - cost,
+    updatedAt: serverTimestamp()
+  });
+
+  await addDoc(collection(db, "households", householdId, "redemptions"), {
+    rewardId: reward.id || null,
+    rewardName: reward.name,
+    cost,
+    redeemerUid: uid,
+    createdAt: serverTimestamp()
+  });
+
+  return balance - cost;
+}
+</script>
+
 </head>
 <body>
 
@@ -237,6 +338,7 @@ async function initialiseCloudForUser(user){
      // Always run the household seeding check when an existing user logs in.
      // This adds any newly introduced starter rewards without duplicating existing ones.
      await seedHousehold();
+     await syncOurHomeSharedRewards();
      await finishHouseholdLoad();
    }else{
      document.getElementById("householdScreen").classList.remove("hidden");
@@ -284,20 +386,7 @@ async function seedHousehold(){
 
   // Starter rewards are added automatically to every household.
   // "owner" controls who the reward is intended for; "Shared" can be redeemed by either person.
-  const defaultRewards=[
-    {name:"Cinema Day / Night (Partner Pays)",cost:100,icon:"🎬",owner:"Shared"},
-    {name:"£20 Present",cost:140,icon:"🎁",owner:"Josh"},
-    {name:"Dinner In",cost:80,icon:"🍝",owner:"Lily"},
-    {name:"Dinner Out",cost:180,icon:"🍽️",owner:"Josh"},
-    {name:"Wishlist Purchase",cost:200,icon:"🛍️",owner:"Lily"},
-    {name:"Choose the Takeaway",cost:60,icon:"🍕",owner:"Shared"},
-    {name:"Lie-In Voucher",cost:75,icon:"😴",owner:"Josh"},
-    {name:"Lazy Morning",cost:70,icon:"☕",owner:"Lily"},
-    {name:"Gaming / Me Time",cost:90,icon:"🎮",owner:"Josh"},
-    {name:"Spa & Relax Night",cost:110,icon:"🧖‍♀️",owner:"Lily"},
-    {name:"No Chores Pass",cost:120,icon:"🧹",owner:"Shared"},
-    {name:"Pick the Weekend Activity",cost:130,icon:"🎯",owner:"Shared"}
-  ];
+  const defaultRewards=OUR_HOME_SHARED_REWARDS;
 
   if(rewardSnap.empty){
     const seedRewards=localRewards.length
