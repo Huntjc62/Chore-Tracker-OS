@@ -618,7 +618,7 @@ async function initialiseCloudForUser(user){
  }catch(err){
    console.error("Our Home Firestore initialisation failed:",err);
    const reason=err?.code||err?.message||"unknown-error";
-   showToast(`❌ Firestore connection failed (${reason}).`);
+   showToast(`❌ Our Home could not finish loading (${reason}).`);
  }
 }
 
@@ -786,6 +786,32 @@ function closeProfileModal(){document.getElementById('profileModalBackdrop').cla
 async function saveMyProfile(e){e.preventDefault();const uid=window.currentFirebaseUser?.uid;if(!uid||!householdId)return;const name=document.getElementById('profileName').value.trim();if(!name)return;try{await window.fs.setDoc(window.fs.doc(window.firebaseDb,'households',householdId,'members',uid),{name,avatar:document.getElementById('profileAvatar').value,colour:document.getElementById('profileColour').value,updatedAt:new Date().toISOString()},{merge:true});await window.fs.setDoc(window.fs.doc(window.firebaseDb,'users',uid),{displayName:name},{merge:true});closeProfileModal();showToast('👤 Profile updated')}catch(err){console.error(err);showToast('❌ Could not update profile')}}
 function profileCard(m,i){const defs=memberProfileDefaults(m,i),name=escapeHTML(m.name||'Member'),week=weeklyPoints(m.name||'Member'),life=lifetimePoints(m.name||'Member'),balance=currentBalance(m.name||'Member'),count=rewardsRedeemed(m.name||'Member'),streak=streakForMember(m.name||'Member');return `<div class="player" style="border-top:5px solid ${defs.colour}"><div class="profile-avatar" style="background:${defs.colour}22">${defs.avatar}</div><div class="profile-name">${name}</div><div class="points">⭐ ${balance}</div><div style="color:var(--muted);font-size:12px">Current balance</div><div class="profile-stats"><div class="profile-stat"><strong>${week} ⭐</strong><span>This week</span></div><div class="profile-stat"><strong>${streak} 🔥</strong><span>Current streak</span></div><div class="profile-stat"><strong>${life} ⭐</strong><span>Lifetime points</span></div><div class="profile-stat"><strong>${count}</strong><span>Rewards redeemed</span></div></div>${m.uid===window.currentFirebaseUser?.uid?'<div class="profile-actions"><button class="btn secondary" onclick="openProfileModal()">✏️ Edit Profile</button></div>':''}</div>`}
 function profilesHTML(){const members=householdMembers.length?householdMembers:[{uid:window.currentFirebaseUser?.uid,name:'You',avatar:'🧑',colour:'#2563eb'}];return `<div class="card"><div class="section-title"><div><h2>👤 Household Profiles</h2><p style="color:var(--muted);margin:4px 0 0">Your household at a glance.</p></div><button class="btn" onclick="openProfileModal()">✏️ Edit My Profile</button></div><div class="leaderboard">${members.map((m,i)=>profileCard(m,i)).join('')}</div></div>${accountSettingsHTML()}`}
+function render(){
+  const content=document.getElementById("appContent");
+  if(!content)return;
+  document.querySelectorAll("#nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===currentView));
+  try{
+    if(currentView==="dashboard") content.innerHTML=dashboardHTML();
+    else if(currentView==="today") content.innerHTML=listHTML("today");
+    else if(currentView==="chores") content.innerHTML=listHTML("all");
+    else if(currentView==="calendar") content.innerHTML=calendarHTML();
+    else if(currentView==="leaderboard") content.innerHTML=leaderboardHTML();
+    else if(currentView==="profiles") content.innerHTML=profilesHTML();
+    else if(currentView==="rewards") content.innerHTML=rewardsHTML();
+    else if(currentView==="plus") content.innerHTML=plusHTML();
+    else if(currentView==="family") content.innerHTML=familyModeHTML();
+    else if(currentView==="history") content.innerHTML=historyPageHTML();
+    else content.innerHTML=dashboardHTML();
+    updateNotificationButton();
+    updateNotificationBadge();
+    updateOfflineUI();
+  }catch(error){
+    console.error("Our Home render error:",error);
+    content.innerHTML=`<div class="card"><h2>⚠️ Our Home couldn't load this screen</h2><p style="color:var(--muted)">${escapeHTML(error?.message||"Unknown error")}</p><button class="btn" onclick="render()">Try again</button></div>`;
+  }
+}
+window.render=render;
+
 function setView(view){
   currentView=view;
   render();

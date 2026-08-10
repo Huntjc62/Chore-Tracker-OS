@@ -1,7 +1,9 @@
-const CACHE = "our-home-v13-1-firestore-fix";
+const CACHE = "our-home-v13-2-render-fix";
 const ASSETS = [
-  "./our-home-firestore-pwa.html",
+  "./",
+  "./index.html",
   "./manifest.json",
+  "./our-home-icons/icon-180.png",
   "./our-home-icons/icon-192.png",
   "./our-home-icons/icon-512.png"
 ];
@@ -20,9 +22,17 @@ self.addEventListener("activate", event => {
   self.clients.claim();
 });
 
+self.addEventListener("message", event => {
+  if (event.data === "SKIP_WAITING") self.skipWaiting();
+});
+
 self.addEventListener("fetch", event => {
   if (event.request.method !== "GET") return;
   event.respondWith(
-    caches.match(event.request).then(cached => cached || fetch(event.request))
+    caches.match(event.request).then(cached => cached || fetch(event.request).then(response => {
+      const copy = response.clone();
+      caches.open(CACHE).then(cache => cache.put(event.request, copy)).catch(() => {});
+      return response;
+    }).catch(() => caches.match("./index.html")))
   );
 });
