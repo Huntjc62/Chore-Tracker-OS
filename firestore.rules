@@ -2,94 +2,111 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    function signedIn() {
-      return request.auth != null;
+    function signedIn() { return request.auth != null; }
+    function member(hid) {
+      return signedIn() && exists(/databases/$(database)/documents/households/$(hid)/members/$(request.auth.uid));
+    }
+    function owner(hid) {
+      return signedIn() && get(/databases/$(database)/documents/households/$(hid)).data.ownerId == request.auth.uid;
     }
 
-    function isMember(householdId) {
-      return signedIn()
-        && exists(
-          /databases/$(database)/documents/households/$(householdId)/members/$(request.auth.uid)
-        );
+    match /users/{uid} {
+      allow create: if signedIn() && uid == request.auth.uid
+        && request.resource.data.uid == request.auth.uid;
+      allow read: if signedIn() && uid == request.auth.uid;
+      allow update: if signedIn() && uid == request.auth.uid
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.householdId == resource.data.householdId;
+      allow delete: if signedIn() && uid == request.auth.uid;
     }
 
-    // Each signed-in user can only manage their own profile.
-    match /users/{userId} {
-      allow read, create, update: if signedIn()
-        && request.auth.uid == userId;
-      allow delete: if signedIn()
-        && request.auth.uid == userId;
-    }
-
-    // Invite codes are random, so a user can look up a code they have been given,
-    // but cannot list all codes.
     match /joinCodes/{code} {
       allow get: if signedIn();
-
+      allow list: if false;
       allow create: if signedIn()
         && request.resource.data.householdId is string
-        && exists(
-          /databases/$(database)/documents/households/$(request.resource.data.householdId)
-        )
-        && get(
-          /databases/$(database)/documents/households/$(request.resource.data.householdId)
-        ).data.ownerId == request.auth.uid;
-
+        && owner(request.resource.data.householdId);
       allow update, delete: if signedIn()
-        && exists(
-          /databases/$(database)/documents/households/$(resource.data.householdId)
-        )
-        && get(
-          /databases/$(database)/documents/households/$(resource.data.householdId)
-        ).data.ownerId == request.auth.uid;
+        && owner(resource.data.householdId);
     }
 
-    match /households/{householdId} {
-      // A signed-in user can create a household where they are the owner.
+    match /households/{hid} {
+      // New households may be Free, or Plus while awaiting payment.
       allow create: if signedIn()
-        && request.resource.data.ownerId == request.auth.uid;
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.plan in ['free','plus']
+        && request.resource.data.subscriptionStatus == (request.resource.data.plan == 'free' ? 'active' : 'pending_payment');
 
-      // Only members can read/change household metadata.
-      allow read, update, delete: if isMember(householdId);
+      // Members may read metadata. Only the owner may change non-billing settings.
+      allow read: if member(hid);
+      allow update: if owner(hid)
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.plan == resource.data.plan
+        && request.resource.data.subscriptionStatus == resource.data.subscriptionStatus
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'name','inviteCode','plusGoal','plusTheme','brandingTagline','updatedAt'
+        ]);
+      allow delete: if owner(hid);
 
-      match /members/{userId} {
-        allow read: if isMember(householdId);
-
-        // Owner can create/update/delete members, OR a user can add themselves
-        // using a valid invite code belonging to this household.
-        allow create: if signedIn()
-          && (
-            (
-              userId == request.auth.uid
-              && request.resource.data.inviteCode is string
-              && get(
-                /databases/$(database)/documents/joinCodes/$(request.resource.data.inviteCode)
-              ).data.householdId == householdId
-            )
-            ||
-            get(
-              /databases/$(database)/documents/households/$(householdId)
-            ).data.ownerId == request.auth.uid
-          );
-
-        allow update, delete: if isMember(householdId);
+      match /members/{uid} {
+        allow read: if member(hid);
+        allow create: if signedIn() && (
+          (uid == request.auth.uid
+            && request.resource.data.uid == request.auth.uid
+            && request.resource.data.inviteCode is string
+            && get(/databases/$(database)/documents/joinCodes/$(request.resource.data.inviteCode)).data.householdId == hid)
+          || owner(hid)
+        );
+        allow update: if signedIn() && (
+          (uid == request.auth.uid && member(hid) && request.resource.data.uid == resource.data.uid && request.resource.data.role == resource.data.role && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','avatar','colour','ageGroup','updatedAt']))
+          || owner(hid)
+        );
+        allow delete: if signedIn() && (uid == request.auth.uid || owner(hid));
       }
 
-      match /chores/{choreId} {
-        allow read, create, update, delete: if isMember(householdId);
+      match /chores/{id} {
+        allow read: if member(hid);
+        allow create: if member(hid)
+          && request.resource.data.points is int
+          && request.resource.data.points >= 1
+          && request.resource.data.points <= 1000
+          && request.resource.data.name is string
+          && request.resource.data.dueDate is string;
+        allow update: if member(hid)
+          && request.resource.data.points is int
+          && request.resource.data.points >= 1
+          && request.resource.data.points <= 1000
+          && (request.resource.data.points == resource.data.points || owner(hid));
+        allow delete: if owner(hid) || (member(hid) && resource.data.createdBy == request.auth.uid);
       }
 
-      match /completions/{completionId} {
-        allow read, create, update, delete: if isMember(householdId);
+      match /completions/{id} {
+        allow read: if member(hid);
+        allow create: if member(hid)
+          && request.resource.data.personUid == request.auth.uid
+          && request.resource.data.points is int
+          && request.resource.data.points >= 1
+          && request.resource.data.points == get(/databases/$(database)/documents/households/$(hid)/chores/$(request.resource.data.choreId)).data.points;
+        allow update, delete: if false;
       }
 
-      match /rewards/{rewardId} {
-        allow read, create, update, delete: if isMember(householdId);
+      match /rewards/{id} {
+        allow read: if member(hid);
+        allow create: if member(hid)
+          && request.resource.data.cost is int
+          && request.resource.data.cost >= 1
+          && request.resource.data.cost <= 100000;
+        allow update: if owner(hid) || (member(hid) && resource.data.createdBy == request.auth.uid);
+        allow delete: if owner(hid) || (member(hid) && resource.data.createdBy == request.auth.uid);
       }
 
-      match /redemptions/{redemptionId} {
-        allow read, create, update, delete: if isMember(householdId);
+      match /redemptions/{id} {
+        allow read: if member(hid);
+        allow create: if member(hid)
+          && request.resource.data.personUid == request.auth.uid
+          && request.resource.data.cost is int
+          && request.resource.data.cost == get(/databases/$(database)/documents/households/$(hid)/rewards/$(request.resource.data.rewardId)).data.cost;
+        allow update, delete: if false;
       }
     }
   }
