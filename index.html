@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Our Home | Chore Tracker</title>
+<title>Our Home V13.3 | Chore Tracker</title>
 <style>
 :root{
   --bg:#f4f6f8;--card:#fff;--text:#17202a;--muted:#6b7280;--line:#e5e7eb;
@@ -417,6 +417,8 @@ function loadJSON(key,fallback){try{return JSON.parse(localStorage.getItem(key))
 function pad(n){return String(n).padStart(2,"0")}
 function dateKey(d){return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())}
 function todayKey(){return dateKey(new Date())}
+function getStatus(chore){if(chore.completed)return {text:"✓ Complete",cls:"done"};if(!chore.dueDate)return {text:"No date",cls:""};if(chore.dueDate<todayKey())return {text:"🔴 Overdue",cls:"overdue"};if(chore.dueDate===todayKey())return {text:"Today",cls:"today"};return {text:"Upcoming",cls:""};}
+
 function parseDate(s){const [y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d)}
 function formatDate(s){if(!s)return "No date";return parseDate(s).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}
 function startOfWeek(d){const x=new Date(d);const day=x.getDay();const diff=day===0?-6:1-day;x.setDate(x.getDate()+diff);x.setHours(0,0,0,0);return x}
@@ -431,7 +433,7 @@ function premiumStatusText(){
   return isPlusActive() ? "⭐ Plus active" : "🆓 Free";
 }
 function planLabel(){
-  if(isPlusActive()) return "⭐ Our Home Plus";
+  if(window.OUR_HOME_DEV_PREMIUM || isPlusActive()) return "⭐ Our Home Plus";
   return "🆓 Our Home Free";
 }
 function requirePlus(feature){
