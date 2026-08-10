@@ -1,0 +1,14 @@
+{
+  "name": "Our Home",
+  "short_name": "Our Home",
+  "description": "A shared family chore and rewards app.",
+  "start_url": "./our-home-firestore-pwa.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#2563eb",
+  "icons": [
+    {"src":"our-home-icons/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any maskable"},
+    {"src":"our-home-icons/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}
+  ]
+}

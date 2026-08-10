@@ -53,6 +53,15 @@ header{display:flex;justify-content:space-between;align-items:center;gap:16px;ma
 .household-code{font-size:22px;font-weight:900;letter-spacing:2px;background:#f3f4f6;padding:10px 14px;border-radius:10px;display:inline-block;margin:8px 0}
 </style>
 
+
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#2563eb">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Our Home">
+<link rel="apple-touch-icon" href="./our-home-icons/icon-180.png">
+
 </head>
 <body>
 
@@ -419,5 +428,14 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal()});
 
 setTimeout(checkOverdueChores,1200);
 </script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./service-worker.js").catch(console.error);
+  });
+}
+</script>
+
 </body>
 </html>
