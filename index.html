@@ -51,14 +51,6 @@ header{display:flex;justify-content:space-between;align-items:center;gap:16px;ma
 
 
 .household-code{font-size:22px;font-weight:900;letter-spacing:2px;background:#f3f4f6;padding:10px 14px;border-radius:10px;display:inline-block;margin:8px 0}
-
-/* ONBOARDING + PLAN */
-.onboarding-screen{position:fixed;inset:0;background:linear-gradient(135deg,#eff6ff,#f8fafc);display:flex;align-items:center;justify-content:center;padding:18px;z-index:110;overflow:auto}
-.onboarding-card{width:min(760px,100%);background:#fff;border:1px solid var(--line);border-radius:24px;padding:28px;box-shadow:0 20px 60px #00000014}
-.onboarding-top{text-align:center;margin-bottom:22px}.onboarding-top .logo{font-size:52px}.onboarding-top h1{margin:4px 0;font-size:32px}.onboarding-top p{color:var(--muted);margin:6px 0}
-.plan-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0}.plan-card{border:2px solid var(--line);border-radius:18px;padding:18px;cursor:pointer;background:#fff;position:relative}.plan-card.selected{border-color:var(--primary);box-shadow:0 0 0 3px #2563eb18}.plan-card h3{margin:0 0 6px}.plan-price{font-size:25px;font-weight:900}.plan-card ul{padding-left:20px;color:var(--muted);font-size:13px;line-height:1.7}.plan-badge{position:absolute;right:12px;top:12px;background:#eef2ff;color:#4338ca;padding:4px 8px;border-radius:999px;font-size:11px;font-weight:900}.onboarding-step{display:none}.onboarding-step.active{display:block}.step-dots{display:flex;justify-content:center;gap:7px;margin-bottom:20px}.step-dot{width:9px;height:9px;border-radius:50%;background:#d1d5db}.step-dot.active{background:var(--primary)}.choice-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:20px 0}.choice-card{padding:24px;border:2px solid var(--line);border-radius:18px;text-align:center;cursor:pointer}.choice-card:hover{border-color:var(--primary)}.choice-card .emoji{font-size:42px}.onboarding-actions{display:flex;justify-content:space-between;gap:10px;margin-top:20px}.invite-box{background:#f8fafc;border:1px dashed #cbd5e1;border-radius:16px;padding:16px;text-align:center;margin-top:16px}.invite-code{font-size:28px;font-weight:900;letter-spacing:4px;margin:8px 0}.plus-note{background:#eff6ff;color:#1d4ed8;border-radius:12px;padding:10px 12px;font-size:13px;margin-top:10px}.onboarding-message{min-height:20px;color:var(--red);font-size:13px;margin-top:10px}
-@media(max-width:600px){.plan-grid,.choice-grid{grid-template-columns:1fr}.onboarding-card{padding:20px}.onboarding-top h1{font-size:27px}}
-
 </style>
 
 
@@ -70,8 +62,166 @@ header{display:flex;justify-content:space-between;align-items:center;gap:16px;ma
 <meta name="apple-mobile-web-app-title" content="Our Home">
 <link rel="apple-touch-icon" href="./our-home-icons/icon-180.png">
 
+
+<style id="our-home-stage1-plan-css">
+.oh-plan-screen{display:none;max-width:780px;margin:0 auto;padding:28px 18px}
+.oh-plan-screen.show{display:block}
+.oh-plan-card{border:2px solid rgba(100,100,120,.16);border-radius:22px;padding:22px;background:#fff;margin:14px 0;cursor:pointer;transition:.2s}
+.oh-plan-card.selected{border-color:#6c5ce7;box-shadow:0 8px 24px rgba(108,92,231,.14);transform:translateY(-2px)}
+.oh-plan-card h3{margin:0 0 8px}
+.oh-plan-price{font-size:28px;font-weight:800;margin:8px 0}
+.oh-plan-badge{display:inline-block;padding:5px 10px;border-radius:999px;background:#f0edff;color:#5948c4;font-size:12px;font-weight:800}
+.oh-billing{display:flex;gap:10px;margin:16px 0}
+.oh-billing button{flex:1;padding:12px;border:2px solid rgba(100,100,120,.16);border-radius:14px;background:#fff;font-weight:700;cursor:pointer}
+.oh-billing button.selected{border-color:#6c5ce7;background:#f7f5ff}
+.oh-plan-continue{width:100%;padding:15px;border:0;border-radius:15px;font-weight:800;cursor:pointer}
+.oh-plan-note{text-align:center;font-size:12px;opacity:.65;margin-top:12px}
+.oh-payment-preview{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px}
+.oh-payment-preview-card{max-width:450px;width:100%;background:#fff;border-radius:24px;padding:28px;text-align:center}
+.oh-payment-preview-card button{width:100%;padding:14px;border:0;border-radius:14px;margin-top:10px;font-weight:800;cursor:pointer}
+</style>
+
+<script>
+/* OUR HOME — STAGE 1: plan selection only. No payment is taken. */
+const OUR_HOME_STAGE1_PLANS = {
+  free: { id:"free", name:"Our Home Free", price:0, billingCycle:"free", maxMembers:2 },
+  plusMonthly: { id:"plus", name:"Our Home Plus", price:2.99, billingCycle:"monthly", maxMembers:Infinity },
+  plusAnnual: { id:"plus", name:"Our Home Plus", price:24.99, billingCycle:"annual", maxMembers:Infinity }
+};
+
+let ourHomeStage1Plan = "free";
+let ourHomeStage1Billing = "annual";
+
+function selectOurHomeStage1Plan(plan, billing="annual"){
+  ourHomeStage1Plan = plan;
+  ourHomeStage1Billing = billing;
+  document.querySelectorAll(".oh-plan-card").forEach(c =>
+    c.classList.toggle("selected", c.dataset.plan === plan)
+  );
+  document.querySelectorAll(".oh-billing button").forEach(b =>
+    b.classList.toggle("selected", b.dataset.billing === billing)
+  );
+  const btn = document.getElementById("oh-stage1-continue");
+  if(btn){
+    btn.textContent = plan === "free" ? "Continue with Free" : "Continue to payment";
+  }
+}
+
+function continueOurHomeStage1(){
+  localStorage.setItem("ourHomePendingPlan", ourHomeStage1Plan);
+  localStorage.setItem("ourHomePendingBilling",
+    ourHomeStage1Plan === "free" ? "free" : ourHomeStage1Billing
+  );
+
+  if(ourHomeStage1Plan === "plus"){
+    const price = ourHomeStage1Billing === "monthly" ? "£2.99/month" : "£24.99/year";
+    const overlay = document.createElement("div");
+    overlay.className = "oh-payment-preview";
+    overlay.innerHTML = `
+      <div class="oh-payment-preview-card">
+        <div style="font-size:48px">⭐</div>
+        <h2>Our Home Plus</h2>
+        <div style="font-size:28px;font-weight:800">${price}</div>
+        <p><strong>Payment isn't connected yet.</strong></p>
+        <p>This is the Stage 1 payment step. No money will be taken and no card details are required.</p>
+        <button onclick="this.closest('.oh-payment-preview').remove();continueOurHomeStage1AfterPlan()">Continue to create household</button>
+        <button style="background:#f1f1f4" onclick="this.closest('.oh-payment-preview').remove()">Go back</button>
+      </div>`;
+    document.body.appendChild(overlay);
+    return;
+  }
+  continueOurHomeStage1AfterPlan();
+}
+
+function continueOurHomeStage1AfterPlan(){
+  if(typeof showCreateHousehold === "function") return showCreateHousehold();
+  if(typeof startCreateHousehold === "function") return startCreateHousehold();
+  document.dispatchEvent(new CustomEvent("ourhome:planSelected", {
+    detail:{plan:ourHomeStage1Plan,billingCycle:ourHomeStage1Billing}
+  }));
+}
+
+function showOurHomeStage1PlanScreen(){
+  const el=document.getElementById("our-home-stage1-plan-screen");
+  if(el) el.classList.add("show");
+}
+</script>
+
+
+<style id="our-home-plus-css">
+.oh-plus-lock{padding:26px;text-align:center;background:linear-gradient(135deg,#f8f6ff,#fff);border:2px solid #e9e3ff;border-radius:20px}
+.oh-plus-icon{font-size:54px}
+.oh-plus-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.oh-plus-card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px}
+.oh-plus-card h3{margin:0 0 7px}.oh-plus-card p{color:var(--muted);font-size:13px;line-height:1.5}
+.oh-plus-tag{display:inline-block;padding:4px 8px;border-radius:999px;background:#f1edff;color:#5b4bc4;font-size:11px;font-weight:900}
+.oh-plan-pill{display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border-radius:999px;font-size:12px;font-weight:800;background:#eef2ff;color:#3730a3}
+.oh-plan-pill.plus{background:#fef3c7;color:#92400e}
+.oh-goal{background:#fffbeb;border:1px solid #fde68a;border-radius:16px;padding:18px}
+.oh-achievement{display:flex;gap:12px;align-items:center;padding:12px;border:1px solid var(--line);border-radius:12px;background:#fff}
+.oh-achievement.locked{opacity:.45;filter:grayscale(.5)}
+.oh-achievement .emoji{font-size:30px}
+@media(max-width:850px){.oh-plus-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){.oh-plus-grid{grid-template-columns:1fr}}
+</style>
+
 </head>
 <body>
+
+<div id="our-home-stage1-plan-screen" class="oh-plan-screen">
+  <div style="text-align:center;margin-bottom:24px">
+    <div style="font-size:56px">🏠</div>
+    <h1>Welcome to Our Home</h1>
+    <p>Make everyday life a little easier, together.</p>
+  </div>
+
+  <h2 style="text-align:center">Choose your plan</h2>
+
+  <div class="oh-plan-card selected" data-plan="free" onclick="selectOurHomeStage1Plan('free')">
+    <h3>🆓 Our Home Free</h3>
+    <div class="oh-plan-price">£0</div>
+    <p>Everything you need to get started.</p>
+    <ul>
+      <li>Up to 2 household members</li>
+      <li>Basic chores</li>
+      <li>Recurring chores</li>
+      <li>Today view</li>
+      <li>Leaderboard</li>
+      <li>Points and basic rewards</li>
+      <li>Streaks</li>
+      <li>Basic notifications</li>
+    </ul>
+  </div>
+
+  <div class="oh-plan-card" data-plan="plus" onclick="selectOurHomeStage1Plan('plus','annual')">
+    <span class="oh-plan-badge">⭐ OUR HOME PLUS</span>
+    <h3 style="margin-top:10px">More ways to manage your home</h3>
+
+    <div class="oh-billing" onclick="event.stopPropagation()">
+      <button data-billing="monthly" onclick="selectOurHomeStage1Plan('plus','monthly')">£2.99/month</button>
+      <button class="selected" data-billing="annual" onclick="selectOurHomeStage1Plan('plus','annual')">£24.99/year<br><small>Best value</small></button>
+    </div>
+
+    <ul>
+      <li>📊 Advanced statistics</li>
+      <li>🏆 Achievements</li>
+      <li>🎁 Unlimited custom rewards</li>
+      <li>👨‍👩‍👧 Unlimited family members</li>
+      <li>🎨 Custom themes</li>
+      <li>🔥 Advanced streaks</li>
+      <li>📅 Advanced recurring schedules</li>
+      <li>🎯 Household goals</li>
+      <li>📈 Monthly reports</li>
+      <li>☁️ Data export</li>
+      <li>🔔 Advanced notifications</li>
+      <li>🖼️ Custom household branding</li>
+    </ul>
+  </div>
+
+  <button id="oh-stage1-continue" class="oh-plan-continue" onclick="continueOurHomeStage1()">Continue with Free</button>
+  <div class="oh-plan-note">Plus checkout is not connected yet. No payment will be taken at this stage.</div>
+</div>
+
 
 <div id="authScreen" class="auth-screen">
   <div class="auth-card">
@@ -88,49 +238,6 @@ header{display:flex;justify-content:space-between;align-items:center;gap:16px;ma
   </div>
 </div>
 
-
-
-<div id="onboardingScreen" class="onboarding-screen hidden">
-  <div class="onboarding-card">
-    <div class="onboarding-top"><div class="logo">🏠</div><h1>Welcome to Our Home</h1><p>Make everyday life a little easier, together.</p></div>
-    <div class="step-dots"><span class="step-dot active" data-step-dot="1"></span><span class="step-dot" data-step-dot="2"></span><span class="step-dot" data-step-dot="3"></span></div>
-    <div id="onboardingStep1" class="onboarding-step active">
-      <h2>Choose your Our Home plan</h2><p style="color:var(--muted)">Start free or select Plus. The Plus selection is saved to your household now; payment/checkout can be connected later.</p>
-      <div class="plan-grid">
-        <div class="plan-card selected" id="freePlanCard" onclick="selectPlan('free')"><span class="plan-badge">FREE</span><h3>🆓 Our Home Free</h3><div class="plan-price">£0</div><ul><li>Up to 2 household members</li><li>Basic chores & recurring chores</li><li>Today view & leaderboard</li><li>Points, rewards & streaks</li><li>Basic notifications</li></ul></div>
-        <div class="plan-card" id="plusPlanCard" onclick="selectPlan('plus')"><span class="plan-badge">PLUS</span><h3>⭐ Our Home Plus</h3><div class="plan-price">£2.99 <span style="font-size:13px;font-weight:700">/ month</span></div><div style="color:var(--muted);font-size:13px">or <strong>£24.99 / year</strong></div><ul><li>Advanced statistics & achievements</li><li>Unlimited custom rewards & family members</li><li>Custom themes & advanced streaks</li><li>Advanced recurring schedules</li><li>Goals, monthly reports & data export</li><li>Advanced notifications & branding</li></ul></div>
-      </div>
-      <div id="plusBilling" class="plus-note hidden">⭐ Plus selected. Choose monthly or annual billing — payment integration will be connected before launch.</div>
-      <div class="onboarding-actions"><span></span><button class="btn" onclick="onboardingNext(2)">Continue →</button></div>
-    </div>
-    <div id="onboardingStep2" class="onboarding-step">
-      <h2>How are you setting up?</h2><p style="color:var(--muted)">Create a new household or join one you've been invited to.</p>
-      <div class="choice-grid"><div class="choice-card" onclick="chooseOnboardingMode('create')"><div class="emoji">🏠</div><h3>Create a household</h3><p style="color:var(--muted)">Start your own household and invite your family.</p></div><div class="choice-card" onclick="chooseOnboardingMode('join')"><div class="emoji">🔗</div><h3>Join a household</h3><p style="color:var(--muted)">Use an invite code from someone already using Our Home.</p></div></div>
-      <div class="onboarding-actions"><button class="btn secondary" onclick="onboardingNext(1)">← Back</button><span></span></div>
-    </div>
-    <div id="onboardingStep3" class="onboarding-step">
-      <div id="createSetup">
-        <h2>Set up your household 🏠</h2><p style="color:var(--muted)">Tell us a little about your home.</p>
-        <div class="form-grid"><div class="field"><label>Household name</label><input id="onboardHouseholdName" value="Our Home" maxlength="40"></div><div class="field"><label>Your name</label><input id="onboardYourName" maxlength="30" placeholder="e.g. Josh"></div><div class="field full"><label>Partner / family members to invite</label><input id="onboardInviteNames" maxlength="200" placeholder="e.g. Lily, Emma"><small style="color:var(--muted)">Separate names with commas. Free supports you + 1 other member.</small></div></div>
-        <div id="createPlanSummary" class="plus-note"></div>
-        <div class="onboarding-actions"><button class="btn secondary" onclick="onboardingNext(2)">← Back</button><button class="btn" onclick="finishOnboardingCreate()">Create My Household →</button></div>
-      </div>
-      <div id="joinSetup" class="hidden">
-        <h2>Join your household 🔗</h2><p style="color:var(--muted)">Enter the invite code you've been given.</p>
-        <div class="field"><label>Your name</label><input id="onboardJoinName" maxlength="30" placeholder="e.g. Lily"></div>
-        <div class="field" style="margin-top:12px"><label>Household invite code</label><input id="onboardJoinCode" maxlength="20" placeholder="e.g. AB7K9Q2M" style="text-transform:uppercase"></div>
-        <div id="joinPlanNote" class="plus-note">The household's existing plan will apply when you join.</div>
-        <div class="onboarding-actions"><button class="btn secondary" onclick="onboardingNext(2)">← Back</button><button class="btn" onclick="finishOnboardingJoin()">Join Household →</button></div>
-      </div>
-      <div id="onboardingMessage" class="onboarding-message"></div>
-    </div>
-    <div id="onboardingComplete" class="onboarding-step">
-      <div class="onboarding-top"><div class="logo">🎉</div><h1>You're all set!</h1><p>Your household is ready.</p></div>
-      <div class="invite-box"><div style="font-weight:800">Invite your household</div><div class="invite-code" id="onboardingInviteCode">--------</div><button class="btn secondary" onclick="copyInviteCode()">📋 Copy Invite Code</button><p style="color:var(--muted);font-size:12px;margin-bottom:0">Share this code with your family so they can join.</p></div>
-      <div class="onboarding-actions"><span></span><button class="btn green" onclick="enterAppFromOnboarding()">🏠 Enter Our Home</button></div>
-    </div>
-  </div>
-</div>
 
 <div id="householdScreen" class="auth-screen hidden">
   <div class="auth-card">
@@ -154,7 +261,7 @@ header{display:flex;justify-content:space-between;align-items:center;gap:16px;ma
 
 <div class="app" id="mainApp">
 <header>
-  <div class="brand"><h1>🏠 Our Home</h1><p>Household chore tracker</p></div>
+  <div class="brand"><h1>🏠 Our Home</h1><p>Household chore tracker</p><div id="planBadge" class="oh-plan-pill" style="margin-top:7px">🆓 Our Home Free</div></div>
   <div class="header-actions">
     <button class="notification-button" id="notificationButton" onclick="toggleNotifications()">🔔 Enable Notifications</button>
     <button class="btn secondary" onclick="signOutUser()">↪ Sign Out</button>
@@ -171,6 +278,7 @@ header{display:flex;justify-content:space-between;align-items:center;gap:16px;ma
   <button data-view="leaderboard" onclick="setView('leaderboard')">🏆 Leaderboard</button>
   <button data-view="profiles" onclick="setView('profiles')">👤 Profiles</button>
   <button data-view="rewards" onclick="setView('rewards')">🎁 Rewards</button>
+  <button data-view="plus" onclick="setView('plus')">⭐ Plus</button>
   <button data-view="history" onclick="setView('history')">📈 History</button>
 </nav>
 
@@ -186,7 +294,10 @@ header{display:flex;justify-content:space-between;align-items:center;gap:16px;ma
         <div class="field"><label>Assigned to</label><select id="chorePerson"><option>Josh</option><option>Lily</option><option>Shared</option></select></div>
         <div class="field"><label>Points</label><input id="chorePoints" type="number" min="1" value="5" required></div>
         <div class="field"><label>Due date</label><input id="choreDate" type="date" required></div>
-        <div class="field"><label>Repeat</label><select id="choreRepeat"><option value="none">Does not repeat</option><option value="daily">Every day</option><option value="everyOtherDay">Every other day</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select></div>
+        <div class="field"><label>Repeat</label><select id="choreRepeat">
+<option value="none">Does not repeat</option><option value="daily">Every day</option><option value="everyOtherDay">Every other day</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option>
+<option value="custom" class="plus-only-option">⭐ Custom interval (Plus)</option></select></div>
+<div class="field plus-custom-field" style="display:none"><label>Custom interval</label><div style="display:flex;gap:7px"><input id="customRepeatEvery" type="number" min="1" value="2" style="width:90px"><select id="customRepeatUnit"><option value="days">days</option><option value="weeks">weeks</option><option value="months">months</option></select></div></div>
       </div>
       <div class="modal-actions">
         <button type="button" class="btn secondary" onclick="closeModal()">Cancel</button>
@@ -256,10 +367,6 @@ let notificationPermission=localStorage.getItem(NOTIFY_KEY)||"disabled";
 let notifiedOverdue=loadJSON(NOTIFIED_KEY,[]);
 let householdId=null;
 let householdData=null;
-let onboardingPlan="free";
-let onboardingBilling="annual";
-let onboardingMode="create";
-let onboardingInviteCode="";
 let unsubscribeChores=null,unsubscribeCompletions=null,unsubscribeRewards=null,unsubscribeRedemptions=null;
 let cloudReady=false;
 
@@ -280,6 +387,139 @@ function formatDate(s){if(!s)return "No date";return parseDate(s).toLocaleDateSt
 function startOfWeek(d){const x=new Date(d);const day=x.getDay();const diff=day===0?-6:1-day;x.setDate(x.getDate()+diff);x.setHours(0,0,0,0);return x}
 function weekKey(){return dateKey(startOfWeek(new Date()))}
 function showToast(msg){const t=document.getElementById("toast");if(!t)return;t.textContent=msg;t.classList.add("show");clearTimeout(showToast.timer);showToast.timer=setTimeout(()=>t.classList.remove("show"),2800)}
+
+function isPlusActive(){
+  return !!(householdData && householdData.plan==="plus" && householdData.subscriptionStatus==="active");
+}
+function planLabel(){
+  if(isPlusActive()) return "⭐ Our Home Plus";
+  return "🆓 Our Home Free";
+}
+function requirePlus(feature){
+  if(isPlusActive()) return true;
+  showToast(`⭐ ${feature} is an Our Home Plus feature. Choose Plus during onboarding, then complete payment to unlock it.`);
+  currentView="plus";
+  render();
+  return false;
+}
+function premiumLockHTML(){
+  return `<div class="oh-plus-lock">
+    <div class="oh-plus-icon">⭐</div>
+    <h2>Our Home Plus</h2>
+    <p>Unlock the advanced Our Home experience.</p>
+    <p style="color:var(--muted)">Your household is currently on <strong>${householdData?.plan==="plus"?"Plus — awaiting payment":"Free"}</strong>.</p>
+    <button class="btn" onclick="showPlusUpgradeInfo()">⭐ View Plus options</button>
+  </div>`;
+}
+function showPlusUpgradeInfo(){
+  alert("⭐ Our Home Plus\\n\\n£2.99/month or £24.99/year.\\n\\nPayment checkout will be connected to Stripe in the next stage. Until an active subscription is confirmed, Plus features remain locked.");
+}
+function monthlyCompletionCount(){
+  const ym=todayKey().slice(0,7);
+  return completionHistory.filter(h=>String(h.date||"").startsWith(ym)).length;
+}
+function completionRate(){
+  const relevant=chores.length;
+  if(!relevant)return 0;
+  const completed=chores.filter(c=>c.completed || c.completedAt).length;
+  return Math.round((completed/relevant)*100);
+}
+function achievementList(){
+  const total=completionHistory.length;
+  const points=completionHistory.reduce((s,h)=>s+Number(h.points||0),0);
+  const best=Math.max(0,...householdMembers.map(m=>streakForMember(m.name||"")));
+  return [
+    ["🏁","First Chore","Complete your first chore",total>=1],
+    ["🔥","7 Day Streak","Reach a 7 day streak",best>=7],
+    ["🔥","14 Day Streak","Reach a 14 day streak",best>=14],
+    ["🏠","House Hero","Complete 50 chores",total>=50],
+    ["⭐","Point Collector","Earn 1,000 lifetime points",points>=1000],
+    ["👑","Leaderboard Legend","Win a weekly leaderboard",weeklyWinCount()>0]
+  ];
+}
+function weeklyWinCount(){
+  let wins=0;
+  const weeks=[...new Set(completionHistory.map(h=>h.week).filter(Boolean))];
+  for(const wk of weeks){
+    const scores=householdMembers.map(m=>({name:m.name||"",p:completionHistory.filter(h=>(h.person===m.name||h.personUid===m.uid)&&h.week===wk).reduce((s,h)=>s+Number(h.points||0),0)})).sort((a,b)=>b.p-a.p);
+    if(scores.length&&scores[0].p>0&&scores[0].name===memberName(window.currentFirebaseUser?.uid))wins++;
+  }
+  return wins;
+}
+async function createPlusReward(){
+  if(!requirePlus("Unlimited custom rewards"))return;
+  const name=prompt("Reward name");
+  if(!name?.trim())return;
+  const cost=Number(prompt("Star cost", "150"));
+  if(!Number.isFinite(cost)||cost<1){showToast("❌ Enter a valid star cost.");return}
+  const icon=prompt("Emoji", "🎁")||"🎁";
+  try{
+    const id=uid();
+    await window.fs.setDoc(rewardRef(id),{id,name:name.trim(),cost,icon,owner:"Shared",custom:true,createdBy:window.currentFirebaseUser?.uid,createdAt:new Date().toISOString()});
+    showToast("🎁 Custom reward created!");
+  }catch(e){console.error(e);showToast("❌ Could not create reward")}
+}
+async function savePlusGoal(){
+  if(!requirePlus("Household goals"))return;
+  const name=prompt("Goal name", householdData?.plusGoal?.name||"Family Goal");
+  if(!name?.trim())return;
+  const target=Number(prompt("Target stars", householdData?.plusGoal?.target||5000));
+  if(!Number.isFinite(target)||target<1){showToast("❌ Enter a valid target.");return}
+  try{
+    await window.fs.setDoc(window.fs.doc(window.firebaseDb,"households",householdId),{plusGoal:{name:name.trim(),target,updatedAt:new Date().toISOString()}},{merge:true});
+    householdData.plusGoal={name:name.trim(),target};
+    render();
+    showToast("🎯 Goal saved!");
+  }catch(e){console.error(e);showToast("❌ Could not save goal")}
+}
+async function savePlusTheme(){
+  if(!requirePlus("Custom themes"))return;
+  const choice=prompt("Choose an accent colour: blue, purple, green, orange or pink","purple");
+  const colours={blue:"#2563eb",purple:"#7c3aed",green:"#16a34a",orange:"#d97706",pink:"#db2777"};
+  const colour=colours[String(choice||"").toLowerCase()];
+  if(!colour){showToast("❌ Choose blue, purple, green, orange or pink.");return}
+  document.documentElement.style.setProperty("--primary",colour);
+  try{await window.fs.setDoc(window.fs.doc(window.firebaseDb,"households",householdId),{plusTheme:{primary:colour}},{merge:true});householdData.plusTheme={primary:colour};showToast("🎨 Theme updated!")}catch(e){console.error(e)}
+}
+async function savePlusBranding(){
+  if(!requirePlus("Custom household branding"))return;
+  const tagline=prompt("Household tagline",householdData?.brandingTagline||"Make everyday life a little easier, together.");
+  if(tagline===null)return;
+  try{await window.fs.setDoc(window.fs.doc(window.firebaseDb,"households",householdId),{brandingTagline:tagline.trim()},{merge:true});householdData.brandingTagline=tagline.trim();render();showToast("🖼️ Branding updated!")}catch(e){console.error(e)}
+}
+function exportPlusData(){
+  if(!requirePlus("Data export"))return;
+  const payload={household:householdData,members:householdMembers,chores,completions:completionHistory,rewards,redemptions:rewardRedemptions,exportedAt:new Date().toISOString()};
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`our-home-${householdId}-export.json`;a.click();URL.revokeObjectURL(a.href);
+}
+function plusHTML(){
+  if(!isPlusActive()) return `<div class="card">${premiumLockHTML()}</div>`;
+  const total=completionHistory.length, points=completionHistory.reduce((s,h)=>s+Number(h.points||0),0);
+  const goal=householdData.plusGoal, goalProgress=goal?Math.min(100,Math.round(points/goal.target*100)):0;
+  return `<div class="card">
+    <div class="section-title"><div><h2>⭐ Our Home Plus</h2><p style="color:var(--muted)">Advanced tools for your household.</p></div><span class="oh-plan-pill plus">Active subscription</span></div>
+    <div class="grid">
+      <div class="stat"><div class="label">Lifetime points</div><div class="value">⭐ ${points}</div></div>
+      <div class="stat"><div class="label">Chores completed</div><div class="value">${total}</div></div>
+      <div class="stat"><div class="label">This month</div><div class="value">${monthlyCompletionCount()}</div></div>
+      <div class="stat"><div class="label">Completion rate</div><div class="value">${completionRate()}%</div></div>
+    </div>
+  </div>
+
+  <div class="oh-plus-grid">
+    <div class="oh-plus-card"><span class="oh-plus-tag">ADVANCED STATS</span><h3>📊 Advanced statistics</h3><p>Track lifetime points, monthly activity, completion rate and household performance.</p></div>
+    <div class="oh-plus-card"><span class="oh-plus-tag">ACHIEVEMENTS</span><h3>🏆 Achievements</h3><div style="display:grid;gap:8px">${achievementList().map(a=>`<div class="oh-achievement ${a[3]?"":"locked"}"><div class="emoji">${a[0]}</div><div><strong>${a[1]}</strong><div style="font-size:12px;color:var(--muted)">${a[2]}</div></div></div>`).join("")}</div></div>
+    <div class="oh-plus-card"><span class="oh-plus-tag">REWARDS</span><h3>🎁 Custom rewards</h3><p>Create unlimited shared rewards with your own name, emoji and star cost.</p><button class="btn" onclick="createPlusReward()">＋ Add custom reward</button></div>
+    <div class="oh-plus-card"><span class="oh-plus-tag">GOALS</span><h3>🎯 Household goal</h3>${goal?`<div class="oh-goal"><strong>${escapeHTML(goal.name)}</strong><p>⭐ ${points.toLocaleString()} / ${Number(goal.target).toLocaleString()}</p><div class="progress"><span style="width:${goalProgress}%"></span></div></div>`:"<p>No goal set yet.</p>"}<button class="btn" style="margin-top:10px" onclick="savePlusGoal()">🎯 ${goal?"Edit":"Set"} goal</button></div>
+    <div class="oh-plus-card"><span class="oh-plus-tag">CUSTOMISATION</span><h3>🎨 Custom themes</h3><p>Choose a household accent colour.</p><button class="btn" onclick="savePlusTheme()">🎨 Change theme</button></div>
+    <div class="oh-plus-card"><span class="oh-plus-tag">BRANDING</span><h3>🖼️ Household branding</h3><p>Set a custom household tagline for your home.</p><button class="btn" onclick="savePlusBranding()">🖼️ Edit branding</button></div>
+    <div class="oh-plus-card"><span class="oh-plus-tag">DATA</span><h3>☁️ Data export</h3><p>Export your household data as a JSON backup.</p><button class="btn" onclick="exportPlusData()">⬇️ Export data</button></div>
+    <div class="oh-plus-card"><span class="oh-plus-tag">REPORTS</span><h3>📈 Monthly reports</h3><p>Generate a simple report from your household's activity.</p><button class="btn" onclick="alert('Monthly report: '+monthlyCompletionCount()+' chores completed this month and '+completionHistory.filter(h=>String(h.date||'').startsWith(todayKey().slice(0,7))).reduce((s,h)=>s+Number(h.points||0),0)+' ⭐ earned.')">📈 View report</button></div>
+    <div class="oh-plus-card"><span class="oh-plus-tag">NOTIFICATIONS</span><h3>🔔 Advanced notifications</h3><p>Morning summaries, streak milestones, leaderboard changes and Sunday results are included with Plus.</p><button class="btn" onclick="toggleNotifications()">🔔 Manage notifications</button></div>
+  </div>`;
+}
+
 function setHouseholdMessage(msg,error=true){const e=document.getElementById("householdMessage");if(e){e.textContent=msg;e.style.color=error?"var(--red)":"var(--green)"}}
 function setAuthMessage(message,error=true){const e=document.getElementById("authMessage");if(e){e.textContent=message;e.style.color=error?"var(--red)":"var(--green)"}}
 
@@ -293,9 +533,9 @@ async function handleAuthSubmit(e){
  catch(err){const m={"auth/invalid-credential":"Email or password is incorrect.","auth/invalid-email":"Please enter a valid email address.","auth/email-already-in-use":"An account already exists with this email.","auth/weak-password":"Password must be at least 6 characters.","auth/too-many-requests":"Too many attempts. Please try again later."};setAuthMessage(m[err.code]||"Unable to sign in. Please check your details.")}
 }
 function handleAuthState(user){
- const screen=document.getElementById("authScreen"),appEl=document.getElementById("mainApp"),house=document.getElementById("householdScreen"),onboard=document.getElementById("onboardingScreen");
- if(!user){screen.classList.remove("hidden");house.classList.add("hidden");onboard.classList.add("hidden");appEl.classList.add("hidden");stopCloudListeners();return}
- screen.classList.add("hidden");appEl.classList.add("hidden");house.classList.add("hidden");
+ const screen=document.getElementById("authScreen"),appEl=document.getElementById("mainApp"),house=document.getElementById("householdScreen");
+ if(!user){screen.classList.remove("hidden");house.classList.add("hidden");appEl.classList.add("hidden");stopCloudListeners();return}
+ screen.classList.add("hidden");appEl.classList.add("hidden");
  initialiseCloudForUser(user);
 }
 function signOutUser(){if(window.firebaseAuth&&window.firebaseSignOut)window.firebaseSignOut(window.firebaseAuth).catch(()=>showToast("❌ Unable to sign out"))}
@@ -305,93 +545,58 @@ async function initialiseCloudForUser(user){
    const profileRef=window.fs.doc(window.firebaseDb,"users",user.uid);
    const profileSnap=await window.fs.getDoc(profileRef);
    if(profileSnap.exists()&&profileSnap.data().householdId){
-     householdId=profileSnap.data().householdId;
+     householdId=profileSnap.data().householdId;document.getElementById("our-home-stage1-plan-screen")?.classList.remove("show");
+     // Always run the household seeding check when an existing user logs in.
+     // This adds any newly introduced starter rewards without duplicating existing ones.
      await seedHousehold();
      await ensureMemberProfiles();
      await finishHouseholdLoad();
    }else{
-     showOnboarding();
+     document.getElementById("householdScreen").classList.add("hidden");
+     document.getElementById("mainApp").classList.add("hidden");
+     showOurHomeStage1PlanScreen();
    }
  }catch(err){console.error(err);showToast("❌ Could not connect to Firestore. Check your rules.")}
 }
 
-function showOnboarding(){
- const onboard=document.getElementById("onboardingScreen");
- document.getElementById("mainApp").classList.add("hidden");
- document.getElementById("householdScreen").classList.add("hidden");
- onboard.classList.remove("hidden");
- onboardingPlan="free";onboardingBilling="annual";onboardingMode="create";
- selectPlan("free"); onboardingNext(1); setOnboardingMessage("");
- const u=window.currentFirebaseUser;
- const suggested=u?.email?.split("@")[0]||"";
- const name=document.getElementById("onboardYourName"); if(name&&!name.value)name.value=suggested;
-}
-function setOnboardingMessage(msg){const e=document.getElementById("onboardingMessage");if(e)e.textContent=msg||""}
-function onboardingNext(step){
- [1,2,3].forEach(n=>{document.getElementById("onboardingStep"+n)?.classList.toggle("active",n===step);document.querySelector(`[data-step-dot="${n}"]`)?.classList.toggle("active",n===step)});
- if(step===3) updateCreatePlanSummary();
-}
-function selectPlan(plan){
- onboardingPlan=plan;
- document.getElementById("freePlanCard")?.classList.toggle("selected",plan==="free");
- document.getElementById("plusPlanCard")?.classList.toggle("selected",plan==="plus");
- document.getElementById("plusBilling")?.classList.toggle("hidden",plan!=="plus");
- updateCreatePlanSummary();
-}
-function chooseBilling(cycle){onboardingBilling=cycle;updateCreatePlanSummary()}
-function updateCreatePlanSummary(){
- const e=document.getElementById("createPlanSummary");if(!e)return;
- if(onboardingPlan==="free")e.innerHTML="🆓 <strong>Our Home Free</strong> — £0. Up to 2 household members.";
- else e.innerHTML=`⭐ <strong>Our Home Plus</strong> — £2.99/month or £24.99/year. <select onchange="chooseBilling(this.value)" style="margin-left:6px;padding:6px;border:1px solid #bfdbfe;border-radius:8px"><option value="annual" ${onboardingBilling==="annual"?"selected":""}>£24.99/year</option><option value="monthly" ${onboardingBilling==="monthly"?"selected":""}>£2.99/month</option></select><br><small>Plus selected now; payment/checkout will be connected before public launch.</small>`;
-}
-function chooseOnboardingMode(mode){onboardingMode=mode;document.getElementById("createSetup")?.classList.toggle("hidden",mode!=="create");document.getElementById("joinSetup")?.classList.toggle("hidden",mode!=="join");onboardingNext(3);setOnboardingMessage("")}
-async function copyInviteCode(){
- const code=onboardingInviteCode||householdData?.inviteCode||"";if(!code)return;
- try{await navigator.clipboard.writeText(code);showToast("📋 Invite code copied!")}catch(e){showToast("Invite code: "+code)}
-}
-function enterAppFromOnboarding(){document.getElementById("onboardingScreen").classList.add("hidden");finishHouseholdLoad()}
-
-async function finishOnboardingCreate(){
- const user=window.currentFirebaseUser;if(!user)return;
- const name=(document.getElementById("onboardHouseholdName").value.trim()||"Our Home").slice(0,40);
- const yourName=(document.getElementById("onboardYourName").value.trim()||user.email?.split("@")[0]||"User").slice(0,30);
- const names=(document.getElementById("onboardInviteNames").value||"").split(",").map(x=>x.trim()).filter(Boolean).slice(0,onboardingPlan==="free"?1:50);
- if(onboardingPlan==="free" && (document.getElementById("onboardInviteNames").value||"").split(",").map(x=>x.trim()).filter(Boolean).length>1){setOnboardingMessage("🆓 The Free plan supports up to 2 household members. Upgrade to Plus for more.");return}
- const id=uid(),inviteCode=makeInviteCode();onboardingInviteCode=inviteCode;
- try{
-   await window.fs.setDoc(window.fs.doc(window.firebaseDb,"households",id),{name,ownerId:user.uid,inviteCode,plan:onboardingPlan,billingCycle:onboardingPlan==="plus"?onboardingBilling:null,subscriptionStatus:onboardingPlan==="plus"?"selected":"free",createdAt:new Date().toISOString()});
-   await window.fs.setDoc(window.fs.doc(window.firebaseDb,"households",id,"members",user.uid),{uid:user.uid,email:user.email,name:yourName,role:"owner",inviteCode,joinedAt:new Date().toISOString(),avatar:"🧑",colour:"#2563eb"});
-   await window.fs.setDoc(window.fs.doc(window.firebaseDb,"users",user.uid),{uid:user.uid,email:user.email,householdId:id,onboardingComplete:true,plan:onboardingPlan,billingCycle:onboardingPlan==="plus"?onboardingBilling:null,updatedAt:new Date().toISOString()},{merge:true});
-   // Store intended invitees as pending names; they join later using the household code.
-   await window.fs.updateDoc(window.fs.doc(window.firebaseDb,"households",id),{pendingInviteNames:names,updatedAt:new Date().toISOString()});
-   householdId=id;await seedHousehold();await ensureMemberProfiles();
-   householdData=(await window.fs.getDoc(window.fs.doc(window.firebaseDb,"households",id))).data();
-   document.getElementById("onboardingInviteCode").textContent=inviteCode;
-   document.getElementById("onboardingStep3").classList.remove("active");document.getElementById("onboardingComplete").classList.add("active");
-   document.querySelectorAll("[data-step-dot]").forEach(d=>d.classList.remove("active"));
- }catch(err){console.error(err);setOnboardingMessage("Unable to create your household: "+(err.code||err.message))}
-}
-async function finishOnboardingJoin(){
- const user=window.currentFirebaseUser;if(!user)return;
- const name=(document.getElementById("onboardJoinName").value.trim()||user.email?.split("@")[0]||"User").slice(0,30);
- const code=document.getElementById("onboardJoinCode").value.trim().toUpperCase();if(!code){setOnboardingMessage("Enter your household invite code.");return}
- try{
-   const codeSnap=await window.fs.getDoc(window.fs.doc(window.firebaseDb,"joinCodes",code));
-   if(!codeSnap.exists()){setOnboardingMessage("That invite code wasn't found.");return}
-   const data=codeSnap.data();householdId=data.householdId;
-   const hSnap=await window.fs.getDoc(window.fs.doc(window.firebaseDb,"households",householdId));
-   if(!hSnap.exists()){setOnboardingMessage("That household no longer exists.");return}
-   const h=hSnap.data();const memberSnap=await window.fs.getDocs(window.fs.collection(window.firebaseDb,"households",householdId,"members"));
-   if(h.plan!=="plus" && memberSnap.size>=2){setOnboardingMessage("🆓 This household has reached its 2-member Free plan limit.");return}
-   await window.fs.setDoc(window.fs.doc(window.firebaseDb,"households",householdId,"members",user.uid),{uid:user.uid,email:user.email,name,role:"member",inviteCode:code,joinedAt:new Date().toISOString(),avatar:"🧑",colour:"#7c3aed"});
-   await window.fs.setDoc(window.fs.doc(window.firebaseDb,"users",user.uid),{uid:user.uid,email:user.email,householdId,onboardingComplete:true,plan:h.plan||"free",billingCycle:h.billingCycle||null,updatedAt:new Date().toISOString()},{merge:true});
-   await ensureMemberProfiles();await finishHouseholdLoad();showToast("🔗 Welcome to "+(h.name||"the household")+"!");
- }catch(err){console.error(err);setOnboardingMessage("Unable to join the household: "+(err.code||err.message))}
-}
-
 function makeInviteCode(){return Math.random().toString(36).slice(2,10).toUpperCase()}
-async function createHousehold(){showOnboarding();onboardingMode="create";onboardingNext(3)}
-async function joinHousehold(){showOnboarding();onboardingMode="join";chooseOnboardingMode("join")}
+async function createHousehold(){
+ const user=window.currentFirebaseUser;if(!user)return;
+ const name=(document.getElementById("householdName").value.trim()||"Our Home").slice(0,40);
+ const id=uid();const inviteCode=makeInviteCode();
+ const pendingPlan=localStorage.getItem("ourHomePendingPlan")||"free";
+ const pendingBilling=localStorage.getItem("ourHomePendingBilling")||"free";
+ const initialPlan=pendingPlan==="plus"?"plus":"free";
+ const initialStatus=pendingPlan==="plus"?"pending_payment":"active";
+ try{
+   await window.fs.setDoc(window.fs.doc(window.firebaseDb,"households",id),{name,ownerId:user.uid,inviteCode,plan:initialPlan,subscriptionStatus:initialStatus,billingCycle:pendingBilling,createdAt:new Date().toISOString()});
+   await window.fs.setDoc(window.fs.doc(window.firebaseDb,"households",id,"members",user.uid),{uid:user.uid,email:user.email,name:user.email?.split("@")[0]||"User",role:"owner",inviteCode,joinedAt:new Date().toISOString(),avatar:"🧑",colour:"#2563eb"});
+   await window.fs.setDoc(window.fs.doc(window.firebaseDb,"users",user.uid),{uid:user.uid,email:user.email,householdId:id,updatedAt:new Date().toISOString()},{merge:true});
+   householdId=id;await seedHousehold();await ensureMemberProfiles();await finishHouseholdLoad();showToast("🏠 Household created!");
+ }catch(err){console.error(err);setHouseholdMessage("Unable to create household: "+(err.code||err.message))}
+}
+async function joinHousehold(){
+ const user=window.currentFirebaseUser;if(!user)return;
+ const code=document.getElementById("joinCode").value.trim().toUpperCase();if(!code){setHouseholdMessage("Enter the household invite code.");return}
+ try{
+   // The join-code collection is intentionally keyed by the code, so the user does not need access to other households.
+   const codeSnap=await window.fs.getDoc(window.fs.doc(window.firebaseDb,"joinCodes",code));
+   if(!codeSnap.exists()){setHouseholdMessage("That invite code wasn't found.");return}
+   const data=codeSnap.data();householdId=data.householdId;
+   const joinedHouseholdSnap=await window.fs.getDoc(window.fs.doc(window.firebaseDb,"households",householdId));
+   if(!joinedHouseholdSnap.exists()){setHouseholdMessage("That household could not be found.");return}
+   const joinedHousehold=joinedHouseholdSnap.data();
+   const existingMembers=await window.fs.getDocs(window.fs.collection(window.firebaseDb,"households",householdId,"members"));
+   const activePlus=joinedHousehold.plan==="plus" && joinedHousehold.subscriptionStatus==="active";
+   if(!activePlus && existingMembers.size>=2){
+     setHouseholdMessage("This Free household already has 2 members. The household needs an active Our Home Plus subscription to add more members.");
+     return;
+   }
+   await window.fs.setDoc(window.fs.doc(window.firebaseDb,"households",householdId,"members",user.uid),{uid:user.uid,email:user.email,name:user.email?.split("@")[0]||"User",role:"member",inviteCode:code,joinedAt:new Date().toISOString(),avatar:"🧑",colour:"#7c3aed"});
+   await window.fs.setDoc(window.fs.doc(window.firebaseDb,"users",user.uid),{uid:user.uid,email:user.email,householdId,updatedAt:new Date().toISOString()},{merge:true});
+   await ensureMemberProfiles();await finishHouseholdLoad();showToast("🔗 Joined the household!");
+ }catch(err){console.error(err);setHouseholdMessage("Unable to join household: "+(err.code||err.message))}
+}
 async function seedHousehold(){
   const choreSnap=await window.fs.getDocs(window.fs.collection(window.firebaseDb,"households",householdId,"chores"));
   const localChores=loadJSON(STORAGE_KEY,[]);
@@ -471,7 +676,9 @@ async function seedHousehold(){
 }
 async function finishHouseholdLoad(){
  const h=await window.fs.getDoc(window.fs.doc(window.firebaseDb,"households",householdId));if(!h.exists()){showToast("❌ Household no longer exists.");return}
- householdData=h.data();cloudReady=true;document.getElementById("householdScreen").classList.add("hidden");document.getElementById("mainApp").classList.remove("hidden");
+ householdData=h.data();
+ if(householdData.plusTheme?.primary) document.documentElement.style.setProperty("--primary",householdData.plusTheme.primary);
+ cloudReady=true;document.getElementById("householdScreen").classList.add("hidden");document.getElementById("mainApp").classList.remove("hidden");
  const p=document.querySelector(".brand p");if(p)p.textContent=`${householdData.name||"Our Home"} • ${window.currentFirebaseUser.email}`;
  startCloudListeners();render();setTimeout(runSmartNotificationChecks,1200);
 }
@@ -529,14 +736,21 @@ function render(){
  if(currentView==="profiles")content.innerHTML=profilesHTML();
  if(currentView==="rewards")content.innerHTML=rewardsHTML();
  if(currentView==="history")content.innerHTML=historyPageHTML();
+ if(currentView==="plus")content.innerHTML=plusHTML();
+ const planBadge=document.getElementById("planBadge");
+ if(planBadge){planBadge.textContent=planLabel();planBadge.classList.toggle("plus",isPlusActive());}
  updateNotificationButton();updateNotificationBadge();
 }
-function setView(view){currentView=view;render()}
-function dashboardHTML(){const today=chores.filter(c=>c.dueDate===todayKey()&&!c.completed).length,overdue=chores.filter(c=>getStatus(c).cls==="overdue").length,completed=chores.filter(c=>c.completed).length,points=weeklyPoints("Josh")+weeklyPoints("Lily");return `<div class="grid"><div class="stat"><div class="label">Today's chores</div><div class="value">${today}</div></div><div class="stat"><div class="label">Overdue</div><div class="value">${overdue}</div></div><div class="stat"><div class="label">Completed</div><div class="value">${completed}</div></div><div class="stat"><div class="label">Weekly points</div><div class="value">⭐ ${points}</div></div></div><div class="card"><div class="section-title"><h2>🧹 Next up</h2><button class="btn" onclick="setView('today')">View Today</button></div>${choreListHTML(chores.filter(c=>!c.completed).sort(sortChores).slice(0,5))}</div><div class="card" style="margin-top:15px">${winnerHTML()}</div><div class="card" style="margin-top:15px"><div class="section-title"><h2>📈 Recent Completion History</h2><span>${completionHistory.length} total</span></div>${historyHTML(8)}</div>`}
+function setView(view){
+  currentView=view;
+  render();
+}
+function dashboardHTML(){
+ const plusBanner=!isPlusActive()?`<div class="card" style="margin-bottom:15px;border:2px solid #e9e3ff;background:#fbfaff"><div class="section-title"><div><h2>⭐ Unlock Our Home Plus</h2><p style="color:var(--muted)">Advanced statistics, achievements, custom rewards, goals, unlimited members and more.</p></div><button class="btn" onclick="setView('plus')">View Plus</button></div></div>`:"";const today=chores.filter(c=>c.dueDate===todayKey()&&!c.completed).length,overdue=chores.filter(c=>getStatus(c).cls==="overdue").length,completed=chores.filter(c=>c.completed).length,points=weeklyPoints("Josh")+weeklyPoints("Lily");return `${plusBanner}<div class="grid"><div class="stat"><div class="label">Today's chores</div><div class="value">${today}</div></div><div class="stat"><div class="label">Overdue</div><div class="value">${overdue}</div></div><div class="stat"><div class="label">Completed</div><div class="value">${completed}</div></div><div class="stat"><div class="label">Weekly points</div><div class="value">⭐ ${points}</div></div></div><div class="card"><div class="section-title"><h2>🧹 Next up</h2><button class="btn" onclick="setView('today')">View Today</button></div>${choreListHTML(chores.filter(c=>!c.completed).sort(sortChores).slice(0,5))}</div><div class="card" style="margin-top:15px">${winnerHTML()}</div><div class="card" style="margin-top:15px"><div class="section-title"><h2>📈 Recent Completion History</h2><span>${completionHistory.length} total</span></div>${historyHTML(8)}</div>`}
 function listHTML(mode){const list=mode==="today"?chores.filter(c=>c.dueDate===todayKey()&&!c.completed):[...chores].sort(sortChores);return `<div class="card"><div class="section-title"><h2>${mode==="today"?"📅 Today's Chores":"🧹 All Chores"}</h2><button class="btn" onclick="openChoreModal()">＋ Add Chore</button></div>${mode==="today"&&!list.length?'<div class="empty">🎉 Nothing due today!</div>':choreListHTML(list)}</div>`}
 function sortChores(a,b){return a.completed-b.completed||a.dueDate.localeCompare(b.dueDate)}
 function choreListHTML(list){if(!list.length)return '<div class="empty">No chores here yet.</div>';return `<div class="chores">${list.map(chore=>{const s=getStatus(chore);return `<div class="chore ${chore.completed?"done":""}"><div class="chore-main"><div class="chore-title">${escapeHTML(chore.name)}</div><div class="meta"><span class="badge">${chore.assignedTo==="Shared"?"👨‍👩‍👧 Shared":"👤 "+chore.assignedTo}</span><span class="badge ${s.cls}">${s.text}</span><span>📅 ${formatDate(chore.dueDate)}</span><span>⭐ ${chore.points}</span>${chore.repeat!=="none"?`<span>🔄 ${repeatLabel(chore.repeat)}</span>`:""}</div></div><div class="actions">${!chore.completed?`<button class="icon-btn" onclick="completeChore('${chore.id}')">✅ Complete</button>`:`<button class="icon-btn" onclick="undoChore('${chore.id}')">↩ Undo</button>`}<button class="icon-btn" onclick="openChoreModal('${chore.id}')">✏️ Edit</button><button class="icon-btn" onclick="deleteChore('${chore.id}')">🗑️</button></div></div>`}).join("")}</div>`}
-function repeatLabel(r){return ({daily:"Every day",everyOtherDay:"Every other day",weekly:"Weekly",monthly:"Monthly"})[r]||r}
+function repeatLabel(r,c=null){if(r==="custom")return `Every ${c?.customEvery||1} ${c?.customUnit||"days"}`;return ({daily:"Every day",everyOtherDay:"Every other day",weekly:"Weekly",monthly:"Monthly"})[r]||r}
 function historyHTML(limit=20){const rows=[...completionHistory].sort((a,b)=>new Date(b.completedAt)-new Date(a.completedAt)).slice(0,limit);if(!rows.length)return '<div class="empty">No completed chores yet.</div>';return `<div class="chores">${rows.map(h=>`<div class="chore"><div class="chore-main"><div class="chore-title">✓ ${escapeHTML(h.choreName)}</div><div class="meta"><span class="badge">${escapeHTML(h.person)}</span><span>📅 ${formatDate(h.date)}</span><span>⭐ ${h.points}</span></div></div><div style="font-size:12px;color:var(--muted)">Week of ${formatDate(h.week)}</div></div>`).join("")}</div>`}
 function calendarHTML(){const start=startOfWeek(new Date());let days="";for(let i=0;i<14;i++){const d=new Date(start);d.setDate(start.getDate()+i);const key=dateKey(d),dayChores=chores.filter(c=>c.dueDate===key);days+=`<div class="day ${key===todayKey()?"today":""}"><strong>${d.toLocaleDateString("en-GB",{weekday:"short"})} ${d.getDate()} ${d.toLocaleDateString("en-GB",{month:"short"})}</strong>${dayChores.length?dayChores.map(c=>`<div class="day-task" title="${escapeHTML(c.name)}">${c.completed?"✓ ":""}${escapeHTML(c.name)}</div>`).join(""):'<div style="color:#9ca3af;font-size:11px;margin-top:8px">—</div>'}</div>`}return `<div class="card"><div class="section-title"><h2>🗓️ Chore Calendar</h2><button class="btn" onclick="openChoreModal()">＋ Add Chore</button></div><p style="color:var(--muted)">Dates align recurring chores with your household schedule.</p><div class="calendar">${days}</div></div>`}
 function weeklyPoints(person){const wk=weekKey();return completionHistory.filter(h=>(h.person===person||h.person==="Shared")&&h.week===wk).reduce((s,h)=>s+Number(h.points||0),0)}
@@ -562,12 +776,33 @@ function rewardsHTML(){
  </div>`
 }
 
-function openChoreModal(id=null){editingId=id;const c=id?chores.find(x=>x.id===id):null;document.getElementById("modalTitle").textContent=id?"Edit Chore":"Add Chore";document.getElementById("choreName").value=c?.name||"";document.getElementById("chorePerson").value=c?.assignedTo||"Josh";document.getElementById("chorePoints").value=c?.points||5;document.getElementById("choreDate").value=c?.dueDate||todayKey();document.getElementById("choreRepeat").value=c?.repeat||"none";document.getElementById("modalBackdrop").classList.add("show");setTimeout(()=>document.getElementById("choreName").focus(),50)}
+function openChoreModal(id=null){editingId=id;const c=id?chores.find(x=>x.id===id):null;document.getElementById("modalTitle").textContent=id?"Edit Chore":"Add Chore";document.getElementById("choreName").value=c?.name||"";document.getElementById("chorePerson").value=c?.assignedTo||"Josh";document.getElementById("chorePoints").value=c?.points||5;document.getElementById("choreDate").value=c?.dueDate||todayKey();document.getElementById("choreRepeat").value=c?.repeat||"none";
+const customOpt=document.querySelector('#choreRepeat option[value="custom"]');
+if(customOpt)customOpt.disabled=!isPlusActive();
+const customField=document.querySelector('.plus-custom-field');
+if(customField)customField.style.display=(c?.repeat==="custom"&&isPlusActive())?"flex":"none";
+document.getElementById("modalBackdrop").classList.add("show");setTimeout(()=>document.getElementById("choreName").focus(),50)}
 function closeModal(){document.getElementById("modalBackdrop").classList.remove("show");editingId=null}
-async function submitChoreForm(e){e.preventDefault();if(!cloudReady)return;const data={name:document.getElementById("choreName").value.trim(),assignedTo:document.getElementById("chorePerson").value,points:Number(document.getElementById("chorePoints").value),dueDate:document.getElementById("choreDate").value,repeat:document.getElementById("choreRepeat").value};if(!data.name||!data.dueDate)return;try{if(editingId){const c=chores.find(x=>x.id===editingId);await saveChoreCloud({...c,...data});showToast("✏️ Chore updated")}else{await saveChoreCloud({id:uid(),...data,completed:false,completedAt:null});showToast("🧹 Chore added")}closeModal()}catch(err){console.error(err);showToast("❌ Could not save chore")}}
-async function completeChore(id){const c=chores.find(x=>x.id===id);if(!c)return;try{const completedDate=todayKey(),points=Number(c.points||0);const h={id:uid(),choreId:c.id,choreName:c.name,person:c.assignedTo,personUid:memberForName(c.assignedTo)?.uid||null,points,date:completedDate,week:weekKey(),completedAt:new Date().toISOString()};await saveCompletionCloud(h);completionHistory.push(h);achievementNotification(c.assignedTo,streakForMember(c.assignedTo));leaderboardNotification();if(c.repeat!=="none"){await saveChoreCloud({...c,completed:false,completedAt:null,dueDate:nextDueDate(c.dueDate,c.repeat)});showToast(`🔄 ${c.name} completed — next due ${formatDate(nextDueDate(c.dueDate,c.repeat))}`)}else{await saveChoreCloud({...c,completed:true,completedAt:{date:completedDate,week:weekKey()}});showToast(`⭐ ${points} points earned!`)}}catch(err){console.error(err);showToast("❌ Could not complete chore")}}
+async function submitChoreForm(e){e.preventDefault();if(!cloudReady)return;const repeatValue=document.getElementById("choreRepeat").value;
+if(repeatValue==="custom"&&!isPlusActive()){showToast("⭐ Custom recurring chores require Our Home Plus.");return}
+const data={name:document.getElementById("choreName").value.trim(),assignedTo:document.getElementById("chorePerson").value,points:Number(document.getElementById("chorePoints").value),dueDate:document.getElementById("choreDate").value,repeat:repeatValue};
+if(repeatValue==="custom"){data.customEvery=Math.max(1,Number(document.getElementById("customRepeatEvery").value||1));data.customUnit=document.getElementById("customRepeatUnit").value;}if(!data.name||!data.dueDate)return;try{if(editingId){const c=chores.find(x=>x.id===editingId);await saveChoreCloud({...c,...data});showToast("✏️ Chore updated")}else{await saveChoreCloud({id:uid(),...data,completed:false,completedAt:null});showToast("🧹 Chore added")}closeModal()}catch(err){console.error(err);showToast("❌ Could not save chore")}}
+async function completeChore(id){const c=chores.find(x=>x.id===id);if(!c)return;try{const completedDate=todayKey(),points=Number(c.points||0);const h={id:uid(),choreId:c.id,choreName:c.name,person:c.assignedTo,personUid:memberForName(c.assignedTo)?.uid||null,points,date:completedDate,week:weekKey(),completedAt:new Date().toISOString()};await saveCompletionCloud(h);completionHistory.push(h);achievementNotification(c.assignedTo,streakForMember(c.assignedTo));leaderboardNotification();if(c.repeat!=="none"){await saveChoreCloud({...c,completed:false,completedAt:null,dueDate:nextDueDate(c.dueDate,c.repeat,c)});showToast(`🔄 ${c.name} completed — next due ${formatDate(nextDueDate(c.dueDate,c.repeat,c))}`)}else{await saveChoreCloud({...c,completed:true,completedAt:{date:completedDate,week:weekKey()}});showToast(`⭐ ${points} points earned!`)}}catch(err){console.error(err);showToast("❌ Could not complete chore")}}
 async function undoChore(id){const c=chores.find(x=>x.id===id);if(!c)return;try{await saveChoreCloud({...c,completed:false,completedAt:null});showToast("↩ Chore reopened") }catch(err){showToast("❌ Could not update chore")}}
-function nextDueDate(date,repeat){const d=parseDate(date);if(repeat==="daily")d.setDate(d.getDate()+1);if(repeat==="everyOtherDay")d.setDate(d.getDate()+2);if(repeat==="weekly")d.setDate(d.getDate()+7);if(repeat==="monthly")d.setMonth(d.getMonth()+1);return dateKey(d)}
+function nextDueDate(date,repeat,chore=null){
+ const d=parseDate(date);
+ if(repeat==="daily")d.setDate(d.getDate()+1);
+ if(repeat==="everyOtherDay")d.setDate(d.getDate()+2);
+ if(repeat==="weekly")d.setDate(d.getDate()+7);
+ if(repeat==="monthly")d.setMonth(d.getMonth()+1);
+ if(repeat==="custom"){
+   const n=Math.max(1,Number(chore?.customEvery||1));
+   if(chore?.customUnit==="weeks")d.setDate(d.getDate()+n*7);
+   else if(chore?.customUnit==="months")d.setMonth(d.getMonth()+n);
+   else d.setDate(d.getDate()+n);
+ }
+ return dateKey(d)
+}
 async function deleteChore(id){const c=chores.find(x=>x.id===id);if(!c)return;if(confirm(`Delete "${c.name}"?`)){try{await deleteChoreCloud(id);showToast("🗑️ Chore deleted")}catch(err){showToast("❌ Could not delete chore")}}}
 function spentThisWeek(person){const m=memberForName(person);return rewardRedemptions.filter(r=>(r.person===person||r.personUid===m?.uid)&&r.week===weekKey()).reduce((s,r)=>s+Number(r.cost||0),0)}
 function availablePoints(person){return currentBalance(person)}
@@ -589,11 +824,16 @@ async function buyReward(id){
    showToast(`🎁 ${redeemer} redeemed ${r.name} for ${cost} ⭐!`);
  }catch(err){console.error(err);showToast("❌ Could not redeem reward")}
 }
-function showHouseholdInfo(){if(!householdData)return;const code=householdData.inviteCode||"Not available";alert(`🏠 ${householdData.name||"Our Home"}\n\nInvite code:\n${code}\n\nGive this code to Lily so she can join the same household on her device.`)}
+function showHouseholdInfo(){if(!householdData)return;const code=householdData.inviteCode||"Not available";alert(`🏠 ${householdData.name||"Our Home"}\n\nPlan: ${planLabel()}\n\nInvite code:\n${code}\n\n${isPlusActive()?"Unlimited household members are enabled.":"Free households can have up to 2 members."}`)}
 function capitalise(s){return s.charAt(0).toUpperCase()+s.slice(1)}
 function escapeHTML(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]))}
 
-document.addEventListener("DOMContentLoaded",()=>{document.getElementById("authForm").addEventListener("submit",handleAuthSubmit);document.getElementById("authSwitch").addEventListener("click",()=>{authMode=authMode==="signin"?"signup":"signin";setAuthMessage("",false);updateAuthUI()});document.getElementById("choreForm").addEventListener("submit",submitChoreForm);document.getElementById("profileForm").addEventListener("submit",saveMyProfile);document.getElementById("profileModalBackdrop").addEventListener("click",e=>{if(e.target.id==="profileModalBackdrop")closeProfileModal()});document.getElementById("modalBackdrop").addEventListener("click",e=>{if(e.target.id==="modalBackdrop")closeModal()});document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal()});updateAuthUI()});
+document.addEventListener("DOMContentLoaded",()=>{document.getElementById("authForm").addEventListener("submit",handleAuthSubmit);document.getElementById("authSwitch").addEventListener("click",()=>{authMode=authMode==="signin"?"signup":"signin";setAuthMessage("",false);updateAuthUI()});document.getElementById("choreForm").addEventListener("submit",submitChoreForm);document.getElementById("profileForm").addEventListener("submit",saveMyProfile);
+const repeatSelect=document.getElementById("choreRepeat");
+if(repeatSelect)repeatSelect.addEventListener("change",()=>{
+ const f=document.querySelector('.plus-custom-field');
+ if(f)f.style.display=(repeatSelect.value==="custom"&&isPlusActive())?"flex":"none";
+});document.getElementById("profileModalBackdrop").addEventListener("click",e=>{if(e.target.id==="profileModalBackdrop")closeProfileModal()});document.getElementById("modalBackdrop").addEventListener("click",e=>{if(e.target.id==="modalBackdrop")closeModal()});document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal()});updateAuthUI()});
 window.addEventListener("firebase-auth-changed",e=>handleAuthState(e.detail.user));
 /* =========================================================
    SMART NOTIFICATIONS
@@ -736,10 +976,12 @@ function sundayResultsNotification(){
 }
 function runSmartNotificationChecks(){
   if(!cloudReady || !notificationsGranted())return;
-  morningNotification();
   overdueNotifications();
-  leaderboardNotification();
-  sundayResultsNotification();
+  if(isPlusActive()){
+    morningNotification();
+    leaderboardNotification();
+    sundayResultsNotification();
+  }
   updateNotificationBadge();
 }
 async function enableNotifications(){

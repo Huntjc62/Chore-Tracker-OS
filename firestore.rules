@@ -1,0 +1,96 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isMember(householdId) {
+      return signedIn()
+        && exists(
+          /databases/$(database)/documents/households/$(householdId)/members/$(request.auth.uid)
+        );
+    }
+
+    // Each signed-in user can only manage their own profile.
+    match /users/{userId} {
+      allow read, create, update: if signedIn()
+        && request.auth.uid == userId;
+      allow delete: if signedIn()
+        && request.auth.uid == userId;
+    }
+
+    // Invite codes are random, so a user can look up a code they have been given,
+    // but cannot list all codes.
+    match /joinCodes/{code} {
+      allow get: if signedIn();
+
+      allow create: if signedIn()
+        && request.resource.data.householdId is string
+        && exists(
+          /databases/$(database)/documents/households/$(request.resource.data.householdId)
+        )
+        && get(
+          /databases/$(database)/documents/households/$(request.resource.data.householdId)
+        ).data.ownerId == request.auth.uid;
+
+      allow update, delete: if signedIn()
+        && exists(
+          /databases/$(database)/documents/households/$(resource.data.householdId)
+        )
+        && get(
+          /databases/$(database)/documents/households/$(resource.data.householdId)
+        ).data.ownerId == request.auth.uid;
+    }
+
+    match /households/{householdId} {
+      // A signed-in user can create a household where they are the owner.
+      allow create: if signedIn()
+        && request.resource.data.ownerId == request.auth.uid;
+
+      // Only members can read/change household metadata.
+      allow read, update, delete: if isMember(householdId);
+
+      match /members/{userId} {
+        allow read: if isMember(householdId);
+
+        // Owner can create/update/delete members, OR a user can add themselves
+        // using a valid invite code belonging to this household.
+        allow create: if signedIn()
+          && (
+            (
+              userId == request.auth.uid
+              && request.resource.data.inviteCode is string
+              && get(
+                /databases/$(database)/documents/joinCodes/$(request.resource.data.inviteCode)
+              ).data.householdId == householdId
+            )
+            ||
+            get(
+              /databases/$(database)/documents/households/$(householdId)
+            ).data.ownerId == request.auth.uid
+          );
+
+        allow update, delete: if isMember(householdId);
+      }
+
+      match /chores/{choreId} {
+        allow read, create, update, delete: if isMember(householdId);
+      }
+
+      match /completions/{completionId} {
+        allow read, create, update, delete: if isMember(householdId);
+      }
+
+      match /rewards/{rewardId} {
+        allow read, create, update, delete: if isMember(householdId);
+      }
+
+      match /redemptions/{redemptionId} {
+        allow read, create, update, delete: if isMember(householdId);
+      }
+    }
+  }
+}
