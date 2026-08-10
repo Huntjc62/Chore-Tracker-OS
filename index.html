@@ -42,14 +42,63 @@ header{display:flex;justify-content:space-between;align-items:center;gap:16px;ma
 .hidden{display:none!important}
 @media(max-width:850px){.grid{grid-template-columns:repeat(2,1fr)}.reward-grid{grid-template-columns:1fr 1fr}.calendar{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:600px){.app{padding:14px}header{align-items:flex-start;flex-direction:column}.grid{grid-template-columns:1fr 1fr}.chore{grid-template-columns:1fr}.actions{justify-content:flex-start}.leaderboard,.reward-grid,.form-grid{grid-template-columns:1fr}.field.full{grid-column:auto}.calendar{grid-template-columns:1fr}.day{min-height:auto}}
+.auth-screen{position:fixed;inset:0;background:linear-gradient(135deg,#eff6ff,#f8fafc);display:flex;align-items:center;justify-content:center;padding:20px;z-index:100}
+.auth-card{width:min(420px,100%);background:#fff;border:1px solid var(--line);border-radius:22px;padding:30px;box-shadow:0 15px 45px #00000012;text-align:center}
+.auth-logo{font-size:54px}.auth-card h1{margin:4px 0;font-size:30px}.auth-card>p{color:var(--muted);margin:6px 0 22px}.auth-field{text-align:left;margin-bottom:14px}.auth-field label{display:block;font-size:13px;font-weight:800;margin-bottom:6px}.auth-field input{width:100%;padding:12px;border:1px solid #d1d5db;border-radius:10px;outline:none}.auth-submit{width:100%;margin-top:4px}.auth-switch{margin-top:16px;background:none;color:var(--primary);font-weight:800}.auth-message{min-height:22px;margin-top:12px;font-size:13px;color:var(--red)}
+.auth-screen{position:fixed;inset:0;background:linear-gradient(135deg,#eff6ff,#f8fafc);display:flex;align-items:center;justify-content:center;padding:20px;z-index:100}
+.auth-card{width:min(420px,100%);background:#fff;border:1px solid var(--line);border-radius:22px;padding:30px;box-shadow:0 15px 45px #00000012;text-align:center}
+.auth-logo{font-size:54px}.auth-card h1{margin:4px 0;font-size:30px}.auth-card>p{color:var(--muted);margin:6px 0 22px}.auth-field{text-align:left;margin-bottom:14px}.auth-field label{display:block;font-size:13px;font-weight:800;margin-bottom:6px}.auth-field input{width:100%;padding:12px;border:1px solid #d1d5db;border-radius:10px;outline:none}.auth-submit{width:100%;margin-top:4px}.auth-switch{margin-top:16px;background:none;color:var(--primary);font-weight:800}.auth-message{min-height:22px;margin-top:12px;font-size:13px;color:var(--red)}
+
+
+.household-code{font-size:22px;font-weight:900;letter-spacing:2px;background:#f3f4f6;padding:10px 14px;border-radius:10px;display:inline-block;margin:8px 0}
 </style>
+
 </head>
 <body>
-<div class="app">
+
+<div id="authScreen" class="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">🏠</div>
+    <h1>Our Home</h1>
+    <p id="authSubtitle">Sign in to your household</p>
+    <form id="authForm">
+      <div class="auth-field"><label for="authEmail">Email</label><input id="authEmail" type="email" autocomplete="email" required placeholder="you@example.com"></div>
+      <div class="auth-field"><label for="authPassword">Password</label><input id="authPassword" type="password" autocomplete="current-password" required minlength="6" placeholder="At least 6 characters"></div>
+      <button class="btn auth-submit" type="submit" id="authSubmit">🔐 Sign In</button>
+    </form>
+    <button class="auth-switch" id="authSwitch" type="button">Create an account</button>
+    <div id="authMessage" class="auth-message"></div>
+  </div>
+</div>
+
+
+<div id="householdScreen" class="auth-screen hidden">
+  <div class="auth-card">
+    <div class="auth-logo">🏠</div>
+    <h1>Connect Our Home</h1>
+    <p>Join your household so chores sync across devices.</p>
+    <div class="auth-field" style="text-align:left">
+      <label for="householdName">Household name (when creating)</label>
+      <input id="householdName" value="Our Home" maxlength="40">
+    </div>
+    <button class="btn auth-submit" type="button" onclick="createHousehold()">🏠 Create New Household</button>
+    <div style="margin:18px 0;color:var(--muted);font-weight:700">OR</div>
+    <div class="auth-field" style="text-align:left">
+      <label for="joinCode">Household invite code</label>
+      <input id="joinCode" placeholder="e.g. AB7K9Q2M" maxlength="20" style="text-transform:uppercase">
+    </div>
+    <button class="btn secondary auth-submit" type="button" onclick="joinHousehold()">🔗 Join Household</button>
+    <div id="householdMessage" class="auth-message"></div>
+  </div>
+</div>
+
+<div class="app" id="mainApp">
 <header>
   <div class="brand"><h1>🏠 Our Home</h1><p>House chore tracker for Josh & Lily</p></div>
   <div class="header-actions">
     <button class="notification-button" id="notificationButton" onclick="toggleNotifications()">🔔 Enable Notifications</button>
+    <button class="btn secondary" onclick="signOutUser()">↪ Sign Out</button>
+    <button class="btn secondary" onclick="showHouseholdInfo()">🏠 Household</button>
     <button class="btn" onclick="openChoreModal()">＋ Add Chore</button>
   </div>
 </header>
@@ -87,59 +136,61 @@ header{display:flex;justify-content:space-between;align-items:center;gap:16px;ma
 </div>
 <div class="toast" id="toast"></div>
 
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, addDoc, getDocs, query, where, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+
+const firebaseConfig={
+  apiKey:"AIzaSyChTkrjkBrzlEYG-NxXnIAkKcXVKWjp_2g",
+  authDomain:"chore-tracker-be29c.firebaseapp.com",
+  projectId:"chore-tracker-be29c",
+  storageBucket:"chore-tracker-be29c.firebasestorage.app",
+  messagingSenderId:"360475307242",
+  appId:"1:360475307242:web:53973d9889e733889a3b93"
+};
+const app=initializeApp(firebaseConfig);
+const auth=getAuth(app);
+const db=getFirestore(app);
+window.firebaseAuth=auth;
+window.firebaseDb=db;
+window.firebaseSignOut=signOut;
+window.firebaseCreateUser=createUserWithEmailAndPassword;
+window.firebaseSignIn=signInWithEmailAndPassword;
+window.fs={doc,getDoc,setDoc,updateDoc,deleteDoc,collection,addDoc,getDocs,query,where,onSnapshot,serverTimestamp};
+
+onAuthStateChanged(auth,user=>{
+  window.currentFirebaseUser=user;
+  window.dispatchEvent(new CustomEvent("firebase-auth-changed",{detail:{user}}));
+});
+</script>
 <script>
-const STORAGE_KEY = "ourHomeChoresV1";
-const REWARDS_KEY = "ourHomeRewardsV1";
+const STORAGE_KEY = "ourHomeChoresV1"; // retained only as a temporary local migration source
 const NOTIFY_KEY = "houseNotifications";
 const NOTIFIED_KEY = "notifiedOverdue";
-const HISTORY_KEY = "ourHomeCompletionHistoryV2";
 
-let chores = loadChores();
-let rewards = loadRewards();
-let editingId = null;
-let currentView = "dashboard";
-let notificationPermission = localStorage.getItem(NOTIFY_KEY) || "disabled";
-let notifiedOverdue = loadJSON(NOTIFIED_KEY, []);
-let completionHistory = loadJSON(HISTORY_KEY, []);
+let chores=[];
+let rewards=[];
+let rewardRedemptions=[];
+let completionHistory=[];
+let editingId=null;
+let currentView="dashboard";
+let notificationPermission=localStorage.getItem(NOTIFY_KEY)||"disabled";
+let notifiedOverdue=loadJSON(NOTIFIED_KEY,[]);
+let householdId=null;
+let householdData=null;
+let unsubscribeChores=null,unsubscribeCompletions=null,unsubscribeRewards=null,unsubscribeRedemptions=null;
+let cloudReady=false;
 
-const defaultChores = [
-  {id:uid(),name:"Tidy kitchen",assignedTo:"Josh",points:5,dueDate:todayKey(),repeat:"daily",completed:false,completedAt:null},
-  {id:uid(),name:"Laundry",assignedTo:"Lily",points:8,dueDate:todayKey(),repeat:"weekly",completed:false,completedAt:null},
-  {id:uid(),name:"Take bins out",assignedTo:"Josh",points:5,dueDate:todayKey(),repeat:"weekly",completed:false,completedAt:null},
-  {id:uid(),name:"Hoover downstairs",assignedTo:"Lily",points:7,dueDate:todayKey(),repeat:"weekly",completed:false,completedAt:null}
+const defaultChores=()=>[
+ {id:uid(),name:"Tidy kitchen",assignedTo:"Josh",points:5,dueDate:todayKey(),repeat:"daily",completed:false,completedAt:null},
+ {id:uid(),name:"Laundry",assignedTo:"Lily",points:8,dueDate:todayKey(),repeat:"weekly",completed:false,completedAt:null},
+ {id:uid(),name:"Take bins out",assignedTo:"Josh",points:5,dueDate:todayKey(),repeat:"weekly",completed:false,completedAt:null},
+ {id:uid(),name:"Hoover downstairs",assignedTo:"Lily",points:7,dueDate:todayKey(),repeat:"weekly",completed:false,completedAt:null}
 ];
 
-if(!localStorage.getItem(STORAGE_KEY)){ chores = defaultChores; saveChores(); }
-
-// Migrate any previously completed one-off chores into history.
-const MIGRATION_KEY="ourHomeHistoryMigratedV1";
-if(!localStorage.getItem(MIGRATION_KEY)){
-  chores.filter(c=>c.completed&&c.completedAt).forEach(c=>{
-    completionHistory.push({
-      id:uid(),choreId:c.id,choreName:c.name,person:c.assignedTo,
-      points:Number(c.points||0),
-      date:c.completedAt.date||todayKey(),
-      week:c.completedAt.week||weekKey(),
-      completedAt:new Date().toISOString()
-    });
-  });
-  saveHistory();
-  localStorage.setItem(MIGRATION_KEY,"true");
-}
-
-
-
-function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2); }
-function loadJSON(key,fallback){try{return JSON.parse(localStorage.getItem(key)) ?? fallback}catch(e){return fallback}}
-function loadChores(){return loadJSON(STORAGE_KEY,[])}
-function saveChores(){localStorage.setItem(STORAGE_KEY,JSON.stringify(chores))}
-function loadRewards(){return loadJSON(REWARDS_KEY,[
-  {id:uid(),name:"Choose tonight's film",cost:30,icon:"🎬"},
-  {id:uid(),name:"Pick the takeaway",cost:50,icon:"🍕"},
-  {id:uid(),name:"Lie-in voucher",cost:75,icon:"😴"}
-])}
-function saveRewards(){localStorage.setItem(REWARDS_KEY,JSON.stringify(rewards))}
-function saveHistory(){localStorage.setItem(HISTORY_KEY,JSON.stringify(completionHistory))}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,9)}
+function loadJSON(key,fallback){try{return JSON.parse(localStorage.getItem(key))??fallback}catch(e){return fallback}}
 function pad(n){return String(n).padStart(2,"0")}
 function dateKey(d){return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())}
 function todayKey(){return dateKey(new Date())}
@@ -147,323 +198,170 @@ function parseDate(s){const [y,m,d]=s.split("-").map(Number);return new Date(y,m
 function formatDate(s){if(!s)return "No date";return parseDate(s).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}
 function startOfWeek(d){const x=new Date(d);const day=x.getDay();const diff=day===0?-6:1-day;x.setDate(x.getDate()+diff);x.setHours(0,0,0,0);return x}
 function weekKey(){return dateKey(startOfWeek(new Date()))}
-function showToast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");clearTimeout(showToast.timer);showToast.timer=setTimeout(()=>t.classList.remove("show"),2800)}
+function showToast(msg){const t=document.getElementById("toast");if(!t)return;t.textContent=msg;t.classList.add("show");clearTimeout(showToast.timer);showToast.timer=setTimeout(()=>t.classList.remove("show"),2800)}
+function setHouseholdMessage(msg,error=true){const e=document.getElementById("householdMessage");if(e){e.textContent=msg;e.style.color=error?"var(--red)":"var(--green)"}}
+function setAuthMessage(message,error=true){const e=document.getElementById("authMessage");if(e){e.textContent=message;e.style.color=error?"var(--red)":"var(--green)"}}
 
-function getStatus(chore){
-  if(chore.completed) return {text:"✓ Complete",cls:"done"};
-  if(chore.dueDate < todayKey()) return {text:"🔴 Overdue",cls:"overdue"};
-  if(chore.dueDate === todayKey()) return {text:"Today",cls:"today"};
-  return {text:"Upcoming",cls:""};
+let authMode="signin";
+function updateAuthUI(){const t=document.getElementById("authSubtitle"),b=document.getElementById("authSubmit"),sw=document.getElementById("authSwitch");if(!t)return;if(authMode==="signin"){t.textContent="Sign in to your household";b.textContent="🔐 Sign In";sw.textContent="Create an account"}else{t.textContent="Create your account";b.textContent="👤 Create Account";sw.textContent="Already have an account? Sign in"}}
+async function handleAuthSubmit(e){
+ e.preventDefault();
+ if(!window.firebaseAuth){setAuthMessage("Firebase is still loading. Please try again.");return}
+ const email=document.getElementById("authEmail").value.trim(),password=document.getElementById("authPassword").value;
+ try{setAuthMessage("Working...",false);if(authMode==="signin")await window.firebaseSignIn(window.firebaseAuth,email,password);else await window.firebaseCreateUser(window.firebaseAuth,email,password);setAuthMessage("",false)}
+ catch(err){const m={"auth/invalid-credential":"Email or password is incorrect.","auth/invalid-email":"Please enter a valid email address.","auth/email-already-in-use":"An account already exists with this email.","auth/weak-password":"Password must be at least 6 characters.","auth/too-many-requests":"Too many attempts. Please try again later."};setAuthMessage(m[err.code]||"Unable to sign in. Please check your details.")}
+}
+function handleAuthState(user){
+ const screen=document.getElementById("authScreen"),appEl=document.getElementById("mainApp"),house=document.getElementById("householdScreen");
+ if(!user){screen.classList.remove("hidden");house.classList.add("hidden");appEl.classList.add("hidden");stopCloudListeners();return}
+ screen.classList.add("hidden");appEl.classList.add("hidden");
+ initialiseCloudForUser(user);
+}
+function signOutUser(){if(window.firebaseAuth&&window.firebaseSignOut)window.firebaseSignOut(window.firebaseAuth).catch(()=>showToast("❌ Unable to sign out"))}
+
+async function initialiseCloudForUser(user){
+ try{
+   const profileRef=window.fs.doc(window.firebaseDb,"users",user.uid);
+   const profileSnap=await window.fs.getDoc(profileRef);
+   if(profileSnap.exists()&&profileSnap.data().householdId){
+     householdId=profileSnap.data().householdId;
+     await finishHouseholdLoad();
+   }else{
+     document.getElementById("householdScreen").classList.remove("hidden");
+     document.getElementById("mainApp").classList.add("hidden");
+     setHouseholdMessage("Create a household or enter Lily's household invite code.",false);
+   }
+ }catch(err){console.error(err);showToast("❌ Could not connect to Firestore. Check your rules.")}
 }
 
+function makeInviteCode(){return Math.random().toString(36).slice(2,10).toUpperCase()}
+async function createHousehold(){
+ const user=window.currentFirebaseUser;if(!user)return;
+ const name=(document.getElementById("householdName").value.trim()||"Our Home").slice(0,40);
+ const id=uid();const inviteCode=makeInviteCode();
+ try{
+   await window.fs.setDoc(window.fs.doc(window.firebaseDb,"households",id),{name,ownerId:user.uid,inviteCode,createdAt:new Date().toISOString()});
+   await window.fs.setDoc(window.fs.doc(window.firebaseDb,"households",id,"members",user.uid),{uid:user.uid,email:user.email,name:user.email?.split("@")[0]||"User",role:"owner",inviteCode,joinedAt:new Date().toISOString()});
+   await window.fs.setDoc(window.fs.doc(window.firebaseDb,"users",user.uid),{uid:user.uid,email:user.email,householdId:id,updatedAt:new Date().toISOString()},{merge:true});
+   householdId=id;await seedHousehold();await finishHouseholdLoad();showToast("🏠 Household created!");
+ }catch(err){console.error(err);setHouseholdMessage("Unable to create household: "+(err.code||err.message))}
+}
+async function joinHousehold(){
+ const user=window.currentFirebaseUser;if(!user)return;
+ const code=document.getElementById("joinCode").value.trim().toUpperCase();if(!code){setHouseholdMessage("Enter the household invite code.");return}
+ try{
+   // The join-code collection is intentionally keyed by the code, so the user does not need access to other households.
+   const codeSnap=await window.fs.getDoc(window.fs.doc(window.firebaseDb,"joinCodes",code));
+   if(!codeSnap.exists()){setHouseholdMessage("That invite code wasn't found.");return}
+   const data=codeSnap.data();householdId=data.householdId;
+   await window.fs.setDoc(window.fs.doc(window.firebaseDb,"households",householdId,"members",user.uid),{uid:user.uid,email:user.email,name:user.email?.split("@")[0]||"User",role:"member",inviteCode:code,joinedAt:new Date().toISOString()});
+   await window.fs.setDoc(window.fs.doc(window.firebaseDb,"users",user.uid),{uid:user.uid,email:user.email,householdId,updatedAt:new Date().toISOString()},{merge:true});
+   await finishHouseholdLoad();showToast("🔗 Joined the household!");
+ }catch(err){console.error(err);setHouseholdMessage("Unable to join household: "+(err.code||err.message))}
+}
+async function seedHousehold(){
+  const choreSnap=await window.fs.getDocs(window.fs.collection(window.firebaseDb,"households",householdId,"chores"));
+  const localChores=loadJSON(STORAGE_KEY,[]);
+  if(choreSnap.empty){
+    const seedChores=(localChores.length?localChores:defaultChores());
+    for(const c of seedChores)await window.fs.setDoc(window.fs.doc(window.firebaseDb,"households",householdId,"chores",c.id||uid()),{...c,id:c.id||uid()});
+  }
+
+  const rewardSnap=await window.fs.getDocs(window.fs.collection(window.firebaseDb,"households",householdId,"rewards"));
+  const localRewards=loadJSON("ourHomeRewardsV1",[]);
+  if(rewardSnap.empty){
+    const seedRewards=localRewards.length?localRewards:[
+      {id:uid(),name:"Choose tonight's film",cost:30,icon:"🎬"},
+      {id:uid(),name:"Pick the takeaway",cost:50,icon:"🍕"},
+      {id:uid(),name:"Lie-in voucher",cost:75,icon:"😴"}
+    ];
+    for(const r of seedRewards)await window.fs.setDoc(window.fs.doc(window.firebaseDb,"households",householdId,"rewards",r.id||uid()),{...r,id:r.id||uid()});
+  }
+
+  // Migrate existing local completion history and redemptions once for the first device.
+  const completionSnap=await window.fs.getDocs(window.fs.collection(window.firebaseDb,"households",householdId,"completions"));
+  if(completionSnap.empty){
+    const localHistory=loadJSON("ourHomeCompletionHistoryV2",[]);
+    for(const h of localHistory)await window.fs.setDoc(window.fs.doc(window.firebaseDb,"households",householdId,"completions",h.id||uid()),{...h,id:h.id||uid()});
+  }
+  const redemptionSnap=await window.fs.getDocs(window.fs.collection(window.firebaseDb,"households",householdId,"redemptions"));
+  if(redemptionSnap.empty){
+    const localRedemptions=loadJSON("ourHomeRewardRedemptionsV1",[]);
+    for(const r of localRedemptions)await window.fs.setDoc(window.fs.doc(window.firebaseDb,"households",householdId,"redemptions",r.id||uid()),{...r,id:r.id||uid()});
+  }
+
+  const h=await window.fs.getDoc(window.fs.doc(window.firebaseDb,"households",householdId));
+  if(h.exists()&&h.data().inviteCode)await window.fs.setDoc(window.fs.doc(window.firebaseDb,"joinCodes",h.data().inviteCode),{householdId});
+}
+async function finishHouseholdLoad(){
+ const h=await window.fs.getDoc(window.fs.doc(window.firebaseDb,"households",householdId));if(!h.exists()){showToast("❌ Household no longer exists.");return}
+ householdData=h.data();cloudReady=true;document.getElementById("householdScreen").classList.add("hidden");document.getElementById("mainApp").classList.remove("hidden");
+ const p=document.querySelector(".brand p");if(p)p.textContent=`${householdData.name||"Our Home"} • ${window.currentFirebaseUser.email}`;
+ startCloudListeners();render();
+}
+function stopCloudListeners(){[unsubscribeChores,unsubscribeCompletions,unsubscribeRewards,unsubscribeRedemptions].forEach(fn=>{if(typeof fn==="function")fn()});unsubscribeChores=unsubscribeCompletions=unsubscribeRewards=unsubscribeRedemptions=null;cloudReady=false;householdId=null;householdData=null;chores=[];completionHistory=[];rewards=[];rewardRedemptions=[]}
+function startCloudListeners(){
+ cloudReady=true;
+ const base=["households",householdId];
+ unsubscribeChores=window.fs.onSnapshot(window.fs.collection(window.firebaseDb,...base,"chores"),snap=>{chores=snap.docs.map(d=>d.data());render()});
+ unsubscribeCompletions=window.fs.onSnapshot(window.fs.collection(window.firebaseDb,...base,"completions"),snap=>{completionHistory=snap.docs.map(d=>d.data());render()});
+ unsubscribeRewards=window.fs.onSnapshot(window.fs.collection(window.firebaseDb,...base,"rewards"),snap=>{rewards=snap.docs.map(d=>d.data());render()});
+ unsubscribeRedemptions=window.fs.onSnapshot(window.fs.collection(window.firebaseDb,...base,"redemptions"),snap=>{rewardRedemptions=snap.docs.map(d=>d.data());render()});
+}
+function choreRef(id){return window.fs.doc(window.firebaseDb,"households",householdId,"chores",id)}
+function completionRef(id){return window.fs.doc(window.firebaseDb,"households",householdId,"completions",id)}
+function rewardRef(id){return window.fs.doc(window.firebaseDb,"households",householdId,"rewards",id)}
+function redemptionRef(id){return window.fs.doc(window.firebaseDb,"households",householdId,"redemptions",id)}
+async function saveChoreCloud(c){await window.fs.setDoc(choreRef(c.id),c)}
+async function saveCompletionCloud(h){await window.fs.setDoc(completionRef(h.id),h)}
+async function deleteChoreCloud(id){await window.fs.deleteDoc(choreRef(id))}
+
+function getStatus(chore){if(chore.completed)return {text:"✓ Complete",cls:"done"};if(chore.dueDate<todayKey())return {text:"🔴 Overdue",cls:"overdue"};if(chore.dueDate===todayKey())return {text:"Today",cls:"today"};return {text:"Upcoming",cls:""}}
 function render(){
-  document.querySelectorAll("#nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===currentView));
-  const content=document.getElementById("appContent");
-  if(currentView==="dashboard") content.innerHTML=dashboardHTML();
-  if(currentView==="today") content.innerHTML=listHTML("today");
-  if(currentView==="chores") content.innerHTML=listHTML("all");
-  if(currentView==="calendar") content.innerHTML=calendarHTML();
-  if(currentView==="leaderboard") content.innerHTML=leaderboardHTML();
-  if(currentView==="rewards") content.innerHTML=rewardsHTML();
-  if(currentView==="history") content.innerHTML=historyPageHTML();
-  updateNotificationButton();
-  updateNotificationBadge();
+ if(!cloudReady)return;
+ document.querySelectorAll("#nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===currentView));
+ const content=document.getElementById("appContent");
+ if(currentView==="dashboard")content.innerHTML=dashboardHTML();
+ if(currentView==="today")content.innerHTML=listHTML("today");
+ if(currentView==="chores")content.innerHTML=listHTML("all");
+ if(currentView==="calendar")content.innerHTML=calendarHTML();
+ if(currentView==="leaderboard")content.innerHTML=leaderboardHTML();
+ if(currentView==="rewards")content.innerHTML=rewardsHTML();
+ if(currentView==="history")content.innerHTML=historyPageHTML();
+ updateNotificationButton();updateNotificationBadge();
 }
 function setView(view){currentView=view;render()}
+function dashboardHTML(){const today=chores.filter(c=>c.dueDate===todayKey()&&!c.completed).length,overdue=chores.filter(c=>getStatus(c).cls==="overdue").length,completed=chores.filter(c=>c.completed).length,points=weeklyPoints("Josh")+weeklyPoints("Lily");return `<div class="grid"><div class="stat"><div class="label">Today's chores</div><div class="value">${today}</div></div><div class="stat"><div class="label">Overdue</div><div class="value">${overdue}</div></div><div class="stat"><div class="label">Completed</div><div class="value">${completed}</div></div><div class="stat"><div class="label">Weekly points</div><div class="value">⭐ ${points}</div></div></div><div class="card"><div class="section-title"><h2>🧹 Next up</h2><button class="btn" onclick="setView('today')">View Today</button></div>${choreListHTML(chores.filter(c=>!c.completed).sort(sortChores).slice(0,5))}</div><div class="card" style="margin-top:15px">${winnerHTML()}</div><div class="card" style="margin-top:15px"><div class="section-title"><h2>📈 Recent Completion History</h2><span>${completionHistory.length} total</span></div>${historyHTML(8)}</div>`}
+function listHTML(mode){const list=mode==="today"?chores.filter(c=>c.dueDate===todayKey()&&!c.completed):[...chores].sort(sortChores);return `<div class="card"><div class="section-title"><h2>${mode==="today"?"📅 Today's Chores":"🧹 All Chores"}</h2><button class="btn" onclick="openChoreModal()">＋ Add Chore</button></div>${mode==="today"&&!list.length?'<div class="empty">🎉 Nothing due today!</div>':choreListHTML(list)}</div>`}
+function sortChores(a,b){return a.completed-b.completed||a.dueDate.localeCompare(b.dueDate)}
+function choreListHTML(list){if(!list.length)return '<div class="empty">No chores here yet.</div>';return `<div class="chores">${list.map(chore=>{const s=getStatus(chore);return `<div class="chore ${chore.completed?"done":""}"><div class="chore-main"><div class="chore-title">${escapeHTML(chore.name)}</div><div class="meta"><span class="badge">${chore.assignedTo==="Shared"?"👨‍👩‍👧 Shared":"👤 "+chore.assignedTo}</span><span class="badge ${s.cls}">${s.text}</span><span>📅 ${formatDate(chore.dueDate)}</span><span>⭐ ${chore.points}</span>${chore.repeat!=="none"?`<span>🔄 ${repeatLabel(chore.repeat)}</span>`:""}</div></div><div class="actions">${!chore.completed?`<button class="icon-btn" onclick="completeChore('${chore.id}')">✅ Complete</button>`:`<button class="icon-btn" onclick="undoChore('${chore.id}')">↩ Undo</button>`}<button class="icon-btn" onclick="openChoreModal('${chore.id}')">✏️ Edit</button><button class="icon-btn" onclick="deleteChore('${chore.id}')">🗑️</button></div></div>`}).join("")}</div>`}
+function repeatLabel(r){return ({daily:"Every day",everyOtherDay:"Every other day",weekly:"Weekly",monthly:"Monthly"})[r]||r}
+function historyHTML(limit=20){const rows=[...completionHistory].sort((a,b)=>new Date(b.completedAt)-new Date(a.completedAt)).slice(0,limit);if(!rows.length)return '<div class="empty">No completed chores yet.</div>';return `<div class="chores">${rows.map(h=>`<div class="chore"><div class="chore-main"><div class="chore-title">✓ ${escapeHTML(h.choreName)}</div><div class="meta"><span class="badge">${escapeHTML(h.person)}</span><span>📅 ${formatDate(h.date)}</span><span>⭐ ${h.points}</span></div></div><div style="font-size:12px;color:var(--muted)">Week of ${formatDate(h.week)}</div></div>`).join("")}</div>`}
+function calendarHTML(){const start=startOfWeek(new Date());let days="";for(let i=0;i<14;i++){const d=new Date(start);d.setDate(start.getDate()+i);const key=dateKey(d),dayChores=chores.filter(c=>c.dueDate===key);days+=`<div class="day ${key===todayKey()?"today":""}"><strong>${d.toLocaleDateString("en-GB",{weekday:"short"})} ${d.getDate()} ${d.toLocaleDateString("en-GB",{month:"short"})}</strong>${dayChores.length?dayChores.map(c=>`<div class="day-task" title="${escapeHTML(c.name)}">${c.completed?"✓ ":""}${escapeHTML(c.name)}</div>`).join(""):'<div style="color:#9ca3af;font-size:11px;margin-top:8px">—</div>'}</div>`}return `<div class="card"><div class="section-title"><h2>🗓️ Chore Calendar</h2><button class="btn" onclick="openChoreModal()">＋ Add Chore</button></div><p style="color:var(--muted)">Dates align recurring chores with your household schedule.</p><div class="calendar">${days}</div></div>`}
+function weeklyPoints(person){const wk=weekKey();return completionHistory.filter(h=>(h.person===person||h.person==="Shared")&&h.week===wk).reduce((s,h)=>s+Number(h.points||0),0)}
+function streak(person){const dates=new Set(completionHistory.filter(h=>h.person===person).map(h=>h.date));let current=0,d=new Date();while(dates.has(dateKey(d))){current++;d.setDate(d.getDate()-1)}return current}
+function winnerHTML(){const j=weeklyPoints("Josh"),l=weeklyPoints("Lily");let text="It's a tie! 🤝",who="";if(j>l){text="Josh is this week's winner! 🏆";who="Josh"}if(l>j){text="Lily is this week's winner! 🏆";who="Lily"}return `<div class="winner"><div class="crown">🏆</div><h2>${text}</h2><p>Josh: <strong>${j} pts</strong> &nbsp; vs &nbsp; Lily: <strong>${l} pts</strong></p>${who?`<p>Keep it going — the leaderboard resets each week.</p>`:""}</div>`}
+function leaderboardHTML(){const j=weeklyPoints("Josh"),l=weeklyPoints("Lily"),max=Math.max(j,l,1);return `<div class="card">${winnerHTML()}<div class="section-title"><h2>🏆 Weekly Leaderboard</h2><span style="color:var(--muted)">Week starting ${formatDate(weekKey())}</span></div><div class="leaderboard">${playerCard("Josh","👨",j,max,j>=l)}${playerCard("Lily","👩",l,max,l>=j)}</div><div class="card" style="margin-top:15px;background:#f8fafc"><h3>🔥 Streaks</h3><p>Josh: <strong>${streak("Josh")} day${streak("Josh")===1?"":"s"}</strong> &nbsp; | &nbsp; Lily: <strong>${streak("Lily")} day${streak("Lily")===1?"":"s"}</strong></p><p style="color:var(--muted)">🏅 Lifetime completions — Josh: ${completionHistory.filter(h=>h.person==="Josh").length} &nbsp; | &nbsp; Lily: ${completionHistory.filter(h=>h.person==="Lily").length}</p></div></div>`}
+function playerCard(name,avatar,points,max,winner){return `<div class="player ${winner&&points>0?"winner":""}"><div class="avatar">${avatar}</div><div class="rank">${winner&&points>0?"🏆 ":""}${name}</div><div class="points">${points}</div><div>points this week</div><div class="progress"><span style="width:${Math.round(points/max*100)}%"></span></div></div>`}
+function historyPageHTML(){const total=completionHistory.length,j=completionHistory.filter(h=>h.person==="Josh").reduce((s,h)=>s+Number(h.points||0),0),l=completionHistory.filter(h=>h.person==="Lily").reduce((s,h)=>s+Number(h.points||0),0);return `<div class="grid"><div class="stat"><div class="label">Total completions</div><div class="value">${total}</div></div><div class="stat"><div class="label">Josh lifetime points</div><div class="value">⭐ ${j}</div></div><div class="stat"><div class="label">Lily lifetime points</div><div class="value">⭐ ${l}</div></div><div class="stat"><div class="label">This week's winner</div><div class="value">${weeklyPoints("Josh")===weeklyPoints("Lily")?"🤝":weeklyPoints("Josh")>weeklyPoints("Lily")?"Josh":"Lily"}</div></div></div><div class="card"><div class="section-title"><h2>📈 Completion History</h2><span>Cloud records</span></div>${historyHTML(100)}</div>`}
+function rewardsHTML(){return `<div class="card"><div class="section-title"><h2>🎁 Rewards Shop</h2><span>Spend weekly points</span></div><div class="reward-grid">${rewards.map(r=>`<div class="reward"><div style="font-size:34px">${r.icon}</div><h3>${escapeHTML(r.name)}</h3><small>Costs ⭐ ${r.cost}</small><br><button class="btn" style="margin-top:10px" onclick="buyReward('${r.id}')">Redeem</button></div>`).join("")}</div><p style="color:var(--muted);margin-top:18px">Available this week — Josh: ⭐ ${availablePoints("Josh")} &nbsp; | &nbsp; Lily: ⭐ ${availablePoints("Lily")}</p></div>`}
 
-function dashboardHTML(){
-  const today=chores.filter(c=>c.dueDate===todayKey()&&!c.completed).length;
-  const overdue=chores.filter(c=>getStatus(c).cls==="overdue").length;
-  const completed=chores.filter(c=>c.completed).length;
-  const points=weeklyPoints("Josh")+weeklyPoints("Lily");
-  return `<div class="grid">
-    <div class="stat"><div class="label">Today's chores</div><div class="value">${today}</div></div>
-    <div class="stat"><div class="label">Overdue</div><div class="value">${overdue}</div></div>
-    <div class="stat"><div class="label">Completed</div><div class="value">${completed}</div></div>
-    <div class="stat"><div class="label">Weekly points</div><div class="value">⭐ ${points}</div></div>
-  </div>
-  <div class="card">
-    <div class="section-title"><h2>🧹 Next up</h2><button class="btn" onclick="setView('today')">View Today</button></div>
-    ${choreListHTML(chores.filter(c=>!c.completed).sort(sortChores).slice(0,5))}
-  </div>
-  <div class="card" style="margin-top:15px">${winnerHTML()}</div>
-  <div class="card" style="margin-top:15px">
-    <div class="section-title"><h2>📈 Recent Completion History</h2><span>${completionHistory.length} total</span></div>
-    ${historyHTML(8)}
-  </div>`;
-}
-
-function listHTML(mode){
-  let list=mode==="today"
-    ? chores.filter(c=>c.dueDate===todayKey()&&!c.completed)
-    : [...chores].sort(sortChores);
-  return `<div class="card"><div class="section-title"><h2>${mode==="today"?"📅 Today's Chores":"🧹 All Chores"}</h2><button class="btn" onclick="openChoreModal()">＋ Add Chore</button></div>
-  ${mode==="today" && !list.length ? '<div class="empty">🎉 Nothing due today!</div>' : choreListHTML(list)}</div>`;
-}
-function sortChores(a,b){return a.completed-b.completed || a.dueDate.localeCompare(b.dueDate)}
-function choreListHTML(list){
-  if(!list.length)return '<div class="empty">No chores here yet.</div>';
-  return `<div class="chores">${list.map(chore=>{
-    const s=getStatus(chore);
-    return `<div class="chore ${chore.completed?"done":""}">
-      <div class="chore-main">
-        <div class="chore-title">${escapeHTML(chore.name)}</div>
-        <div class="meta">
-          <span class="badge">${chore.assignedTo==="Shared"?"👨‍👩‍👧 Shared":"👤 "+chore.assignedTo}</span>
-          <span class="badge ${s.cls}">${s.text}</span>
-          <span>📅 ${formatDate(chore.dueDate)}</span>
-          <span>⭐ ${chore.points}</span>
-          ${chore.repeat!=="none"?`<span>🔄 ${capitalise(chore.repeat)}</span>`:""}
-        </div>
-      </div>
-      <div class="actions">
-        ${!chore.completed?`<button class="icon-btn" onclick="completeChore('${chore.id}')">✅ Complete</button>`:`<button class="icon-btn" onclick="undoChore('${chore.id}')">↩ Undo</button>`}
-        <button class="icon-btn" onclick="openChoreModal('${chore.id}')">✏️ Edit</button>
-        <button class="icon-btn" onclick="deleteChore('${chore.id}')">🗑️</button>
-      </div>
-    </div>`;
-  }).join("")}</div>`;
-}
-
-function historyHTML(limit=20){
-  const rows=[...completionHistory].sort((a,b)=>new Date(b.completedAt)-new Date(a.completedAt)).slice(0,limit);
-  if(!rows.length)return '<div class="empty">No completed chores yet.</div>';
-  return `<div class="chores">${rows.map(h=>`<div class="chore">
-    <div class="chore-main">
-      <div class="chore-title">✓ ${escapeHTML(h.choreName)}</div>
-      <div class="meta">
-        <span class="badge">${h.person}</span>
-        <span>📅 ${formatDate(h.date)}</span>
-        <span>⭐ ${h.points}</span>
-      </div>
-    </div>
-    <div style="font-size:12px;color:var(--muted)">Week of ${formatDate(h.week)}</div>
-  </div>`).join("")}</div>`;
-}
-
-function calendarHTML(){
-  const start=startOfWeek(new Date());
-  let days="";
-  for(let i=0;i<14;i++){
-    const d=new Date(start);d.setDate(start.getDate()+i);
-    const key=dateKey(d);
-    const dayChores=chores.filter(c=>c.dueDate===key);
-    days+=`<div class="day ${key===todayKey()?"today":""}">
-      <strong>${d.toLocaleDateString("en-GB",{weekday:"short"})} ${d.getDate()} ${d.toLocaleDateString("en-GB",{month:"short"})}</strong>
-      ${dayChores.length?dayChores.map(c=>`<div class="day-task" title="${escapeHTML(c.name)}">${c.completed?"✓ ":""}${escapeHTML(c.name)}</div>`).join(""):'<div style="color:#9ca3af;font-size:11px;margin-top:8px">—</div>'}
-    </div>`;
-  }
-  return `<div class="card"><div class="section-title"><h2>🗓️ Chore Calendar</h2><button class="btn" onclick="openChoreModal()">＋ Add Chore</button></div><p style="color:var(--muted)">Dates are used to align chores with your weekly schedule. The calendar shows the next two weeks.</p><div class="calendar">${days}</div></div>`;
-}
-
-function weeklyPoints(person){
-  const wk=weekKey();
-  return completionHistory
-    .filter(h=>h.person===person && h.week===wk)
-    .reduce((sum,h)=>sum+Number(h.points||0),0);
-}
-function streak(person){
-  const completedDates = new Set(
-    completionHistory
-      .filter(h=>h.person===person)
-      .map(h=>h.date)
-  );
-
-  let current=0;
-  const d=new Date();
-
-  while(completedDates.has(dateKey(d))){
-    current++;
-    d.setDate(d.getDate()-1);
-  }
-
-  return current;
-}
-function winnerHTML(){
-  const j=weeklyPoints("Josh"),l=weeklyPoints("Lily");
-  let text="It's a tie! 🤝",who="";
-  if(j>l){text="Josh is this week's winner! 🏆";who="Josh"}
-  if(l>j){text="Lily is this week's winner! 🏆";who="Lily"}
-  return `<div class="winner"><div class="crown">🏆</div><h2>${text}</h2><p>Josh: <strong>${j} pts</strong> &nbsp; vs &nbsp; Lily: <strong>${l} pts</strong></p>${who?`<p>Keep it going — the leaderboard resets each week.</p>`:""}</div>`;
-}
-function leaderboardHTML(){
-  const j=weeklyPoints("Josh"),l=weeklyPoints("Lily"),max=Math.max(j,l,1);
-  return `<div class="card">${winnerHTML()}<div class="section-title"><h2>🏆 Weekly Leaderboard</h2><span style="color:var(--muted)">Week starting ${formatDate(weekKey())}</span></div>
-    <div class="leaderboard">
-      ${playerCard("Josh","👨",j,max,j>=l)}
-      ${playerCard("Lily","👩",l,max,l>=j)}
-    </div>
-    <div class="card" style="margin-top:15px;background:#f8fafc">
-      <h3>🔥 Streaks</h3>
-      <p>Josh: <strong>${streak("Josh")} day${streak("Josh")===1?"":"s"}</strong> &nbsp; | &nbsp; Lily: <strong>${streak("Lily")} day${streak("Lily")===1?"":"s"}</strong></p>
-      <p style="color:var(--muted)">🏅 Lifetime completions — Josh: ${completionHistory.filter(h=>h.person==="Josh").length} &nbsp; | &nbsp; Lily: ${completionHistory.filter(h=>h.person==="Lily").length}</p>
-    </div>
-  </div>`;
-}
-function playerCard(name,avatar,points,max,winner){
-  return `<div class="player ${winner&&points>0?"winner":""}"><div class="avatar">${avatar}</div><div class="rank">${winner&&points>0?"🏆 ":""}${name}</div><div class="points">${points}</div><div>points this week</div><div class="progress"><span style="width:${Math.round(points/max*100)}%"></span></div></div>`;
-}
-function historyPageHTML(){
-  const total=completionHistory.length;
-  const j=completionHistory.filter(h=>h.person==="Josh").reduce((s,h)=>s+Number(h.points||0),0);
-  const l=completionHistory.filter(h=>h.person==="Lily").reduce((s,h)=>s+Number(h.points||0),0);
-
-  return `<div class="grid">
-    <div class="stat"><div class="label">Total completions</div><div class="value">${total}</div></div>
-    <div class="stat"><div class="label">Josh lifetime points</div><div class="value">⭐ ${j}</div></div>
-    <div class="stat"><div class="label">Lily lifetime points</div><div class="value">⭐ ${l}</div></div>
-    <div class="stat"><div class="label">This week's winner</div><div class="value">${weeklyPoints("Josh")===weeklyPoints("Lily")?"🤝":weeklyPoints("Josh")>weeklyPoints("Lily")?"Josh":"Lily"}</div></div>
-  </div>
-  <div class="card">
-    <div class="section-title"><h2>📈 Completion History</h2><span>Permanent records</span></div>
-    ${historyHTML(100)}
-  </div>`;
-}
-
-function rewardsHTML(){
-  const j=weeklyPoints("Josh"),l=weeklyPoints("Lily");
-  return `<div class="card"><div class="section-title"><h2>🎁 Rewards Shop</h2><span>Spend weekly points</span></div><div class="reward-grid">${rewards.map(r=>`<div class="reward"><div style="font-size:34px">${r.icon}</div><h3>${escapeHTML(r.name)}</h3><small>Costs ⭐ ${r.cost}</small><br><button class="btn" style="margin-top:10px" onclick="buyReward('${r.id}')">Redeem</button></div>`).join("")}</div><p style="color:var(--muted);margin-top:18px">Available this week — Josh: ⭐ ${availablePoints("Josh")} &nbsp; | &nbsp; Lily: ⭐ ${availablePoints("Lily")}</p></div>`;
-}
-
-function openChoreModal(id=null){
-  editingId=id;
-  const chore=id?chores.find(c=>c.id===id):null;
-  document.getElementById("modalTitle").textContent=id?"Edit Chore":"Add Chore";
-  document.getElementById("choreName").value=chore?.name||"";
-  document.getElementById("chorePerson").value=chore?.assignedTo||"Josh";
-  document.getElementById("chorePoints").value=chore?.points||5;
-  document.getElementById("choreDate").value=chore?.dueDate||todayKey();
-  document.getElementById("choreRepeat").value=chore?.repeat||"none";
-  document.getElementById("modalBackdrop").classList.add("show");
-  setTimeout(()=>document.getElementById("choreName").focus(),50);
-}
+function openChoreModal(id=null){editingId=id;const c=id?chores.find(x=>x.id===id):null;document.getElementById("modalTitle").textContent=id?"Edit Chore":"Add Chore";document.getElementById("choreName").value=c?.name||"";document.getElementById("chorePerson").value=c?.assignedTo||"Josh";document.getElementById("chorePoints").value=c?.points||5;document.getElementById("choreDate").value=c?.dueDate||todayKey();document.getElementById("choreRepeat").value=c?.repeat||"none";document.getElementById("modalBackdrop").classList.add("show");setTimeout(()=>document.getElementById("choreName").focus(),50)}
 function closeModal(){document.getElementById("modalBackdrop").classList.remove("show");editingId=null}
-document.getElementById("choreForm").addEventListener("submit",e=>{
-  e.preventDefault();
-  const data={
-    name:document.getElementById("choreName").value.trim(),
-    assignedTo:document.getElementById("chorePerson").value,
-    points:Number(document.getElementById("chorePoints").value),
-    dueDate:document.getElementById("choreDate").value,
-    repeat:document.getElementById("choreRepeat").value
-  };
-  if(!data.name||!data.dueDate)return;
-  if(editingId){
-    const c=chores.find(x=>x.id===editingId);
-    Object.assign(c,data);
-    showToast("✏️ Chore updated");
-  }else{
-    chores.push({id:uid(),...data,completed:false,completedAt:null});
-    showToast("🧹 Chore added");
-  }
-  saveChores();closeModal();render();
-});
-
-function completeChore(id){
-  const c=chores.find(x=>x.id===id);
-  if(!c)return;
-
-  const completedDate=todayKey();
-  const points=Number(c.points||0);
-
-  // Keep a permanent completion record.
-  completionHistory.push({
-    id:uid(),
-    choreId:c.id,
-    choreName:c.name,
-    person:c.assignedTo,
-    points:points,
-    date:completedDate,
-    week:weekKey(),
-    completedAt:new Date().toISOString()
-  });
-
-  saveHistory();
-
-  if(c.repeat!=="none"){
-    c.completed=false;
-    c.completedAt=null;
-    c.dueDate=nextDueDate(c.dueDate,c.repeat);
-
-    showToast(
-      `🔄 ${c.name} completed — next due ${formatDate(c.dueDate)}`
-    );
-  }else{
-    c.completed=true;
-    c.completedAt={
-      date:completedDate,
-      week:weekKey()
-    };
-
-    showToast(`⭐ ${points} points earned!`);
-  }
-
-  saveChores();
-  render();
-}
-function undoChore(id){const c=chores.find(x=>x.id===id);if(c){c.completed=false;c.completedAt=null;saveChores();render();}}
-function nextDueDate(date,repeat){
-  const d=parseDate(date);
-  if(repeat==="daily")d.setDate(d.getDate()+1);
-  if(repeat==="everyOtherDay")d.setDate(d.getDate()+2);
-  if(repeat==="weekly")d.setDate(d.getDate()+7);
-  if(repeat==="monthly")d.setMonth(d.getMonth()+1);
-  return dateKey(d);
-}
-function deleteChore(id){
-  const c=chores.find(x=>x.id===id);
-  if(!c)return;
-  if(confirm(`Delete "${c.name}"?`)){chores=chores.filter(x=>x.id!==id);saveChores();showToast("🗑️ Chore deleted");render();}
-}
-const REDEMPTIONS_KEY = "ourHomeRewardRedemptionsV1";
-let rewardRedemptions = loadJSON(REDEMPTIONS_KEY, []);
-
-function saveRedemptions(){
-  localStorage.setItem(REDEMPTIONS_KEY,JSON.stringify(rewardRedemptions));
-}
-
-function spentThisWeek(person){
-  return rewardRedemptions
-    .filter(r=>r.person===person && r.week===weekKey())
-    .reduce((sum,r)=>sum+Number(r.cost||0),0);
-}
-
-function availablePoints(person){
-  return Math.max(0,weeklyPoints(person)-spentThisWeek(person));
-}
-
-function buyReward(id){
-  const r=rewards.find(x=>x.id===id);
-  if(!r)return;
-
-  const person=prompt(`Who is redeeming "${r.name}"? Enter Josh or Lily.`);
-  if(!person||!["Josh","Lily"].includes(person))return;
-
-  const available=availablePoints(person);
-
-  if(available<r.cost){
-    showToast(`❌ ${person} needs ${r.cost-available} more available points.`);
-    return;
-  }
-
-  rewardRedemptions.push({
-    id:uid(),
-    rewardId:r.id,
-    rewardName:r.name,
-    person:person,
-    cost:Number(r.cost),
-    week:weekKey(),
-    date:todayKey(),
-    redeemedAt:new Date().toISOString()
-  });
-
-  saveRedemptions();
-  showToast(`🎁 ${person} redeemed ${r.name}!`);
-  render();
-}
+async function submitChoreForm(e){e.preventDefault();if(!cloudReady)return;const data={name:document.getElementById("choreName").value.trim(),assignedTo:document.getElementById("chorePerson").value,points:Number(document.getElementById("chorePoints").value),dueDate:document.getElementById("choreDate").value,repeat:document.getElementById("choreRepeat").value};if(!data.name||!data.dueDate)return;try{if(editingId){const c=chores.find(x=>x.id===editingId);await saveChoreCloud({...c,...data});showToast("✏️ Chore updated")}else{await saveChoreCloud({id:uid(),...data,completed:false,completedAt:null});showToast("🧹 Chore added")}closeModal()}catch(err){console.error(err);showToast("❌ Could not save chore")}}
+async function completeChore(id){const c=chores.find(x=>x.id===id);if(!c)return;try{const completedDate=todayKey(),points=Number(c.points||0);const h={id:uid(),choreId:c.id,choreName:c.name,person:c.assignedTo,points,date:completedDate,week:weekKey(),completedAt:new Date().toISOString()};await saveCompletionCloud(h);if(c.repeat!=="none"){await saveChoreCloud({...c,completed:false,completedAt:null,dueDate:nextDueDate(c.dueDate,c.repeat)});showToast(`🔄 ${c.name} completed — next due ${formatDate(nextDueDate(c.dueDate,c.repeat))}`)}else{await saveChoreCloud({...c,completed:true,completedAt:{date:completedDate,week:weekKey()}});showToast(`⭐ ${points} points earned!`)}}catch(err){console.error(err);showToast("❌ Could not complete chore")}}
+async function undoChore(id){const c=chores.find(x=>x.id===id);if(!c)return;try{await saveChoreCloud({...c,completed:false,completedAt:null});showToast("↩ Chore reopened") }catch(err){showToast("❌ Could not update chore")}}
+function nextDueDate(date,repeat){const d=parseDate(date);if(repeat==="daily")d.setDate(d.getDate()+1);if(repeat==="everyOtherDay")d.setDate(d.getDate()+2);if(repeat==="weekly")d.setDate(d.getDate()+7);if(repeat==="monthly")d.setMonth(d.getMonth()+1);return dateKey(d)}
+async function deleteChore(id){const c=chores.find(x=>x.id===id);if(!c)return;if(confirm(`Delete "${c.name}"?`)){try{await deleteChoreCloud(id);showToast("🗑️ Chore deleted")}catch(err){showToast("❌ Could not delete chore")}}}
+function spentThisWeek(person){return rewardRedemptions.filter(r=>r.person===person&&r.week===weekKey()).reduce((s,r)=>s+Number(r.cost||0),0)}
+function availablePoints(person){return Math.max(0,weeklyPoints(person)-spentThisWeek(person))}
+async function buyReward(id){const r=rewards.find(x=>x.id===id);if(!r)return;const person=prompt(`Who is redeeming "${r.name}"? Enter Josh or Lily.`);if(!person||!["Josh","Lily"].includes(person))return;const available=availablePoints(person);if(available<r.cost){showToast(`❌ ${person} needs ${r.cost-available} more available points.`);return}try{const redemption={id:uid(),rewardId:r.id,rewardName:r.name,person,cost:Number(r.cost),week:weekKey(),date:todayKey(),redeemedAt:new Date().toISOString()};await window.fs.setDoc(redemptionRef(redemption.id),redemption);showToast(`🎁 ${person} redeemed ${r.name}!`)}catch(err){showToast("❌ Could not redeem reward")}}
+function showHouseholdInfo(){if(!householdData)return;const code=householdData.inviteCode||"Not available";alert(`🏠 ${householdData.name||"Our Home"}\n\nInvite code:\n${code}\n\nGive this code to Lily so she can join the same household on her device.`)}
 function capitalise(s){return s.charAt(0).toUpperCase()+s.slice(1)}
-function escapeHTML(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
+function escapeHTML(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]))}
 
+document.addEventListener("DOMContentLoaded",()=>{document.getElementById("authForm").addEventListener("submit",handleAuthSubmit);document.getElementById("authSwitch").addEventListener("click",()=>{authMode=authMode==="signin"?"signup":"signin";setAuthMessage("",false);updateAuthUI()});document.getElementById("choreForm").addEventListener("submit",submitChoreForm);document.getElementById("modalBackdrop").addEventListener("click",e=>{if(e.target.id==="modalBackdrop")closeModal()});document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal()});updateAuthUI()});
+window.addEventListener("firebase-auth-changed",e=>handleAuthState(e.detail.user));
 /* Notifications */
 async function enableNotifications(){
   if(!("Notification" in window)){showToast("❌ Browser notifications aren't supported.");return;}
@@ -519,8 +417,7 @@ document.addEventListener("visibilitychange",()=>{if(document.visibilityState===
 document.getElementById("modalBackdrop").addEventListener("click",e=>{if(e.target.id==="modalBackdrop")closeModal()});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal()});
 
-render();
-setTimeout(checkOverdueChores,800);
+setTimeout(checkOverdueChores,1200);
 </script>
 </body>
 </html>
