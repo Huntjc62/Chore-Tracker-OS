@@ -426,6 +426,10 @@ function showToast(msg){const t=document.getElementById("toast");if(!t)return;t.
 function isPlusActive(){
   return !!(window.OUR_HOME_DEV_PREMIUM || (householdData && householdData.plan==="plus" && householdData.subscriptionStatus==="active"));
 }
+function premiumStatusText(){
+  if(window.OUR_HOME_DEV_PREMIUM) return "⭐ Plus (development account)";
+  return isPlusActive() ? "⭐ Plus active" : "🆓 Free";
+}
 function planLabel(){
   if(isPlusActive()) return "⭐ Our Home Plus";
   return "🆓 Our Home Free";
@@ -586,10 +590,24 @@ async function initialiseCloudForUser(user){
    const profileRef=window.fs.doc(window.firebaseDb,"users",user.uid);
    const profileSnap=await window.fs.getDoc(profileRef);
    if(profileSnap.exists()&&profileSnap.data().householdId){
-     householdId=profileSnap.data().householdId;document.getElementById("our-home-stage1-plan-screen")?.classList.remove("show");
-     // Always run the household seeding check when an existing user logs in.
-     // This adds any newly introduced starter rewards without duplicating existing ones.
-     await seedHousehold();
+     householdId=profileSnap.data().householdId;
+     document.getElementById("our-home-stage1-plan-screen")?.classList.remove("show");
+
+     // Verify the signed-in user is actually a member before touching household data.
+     const memberSnap=await window.fs.getDoc(window.fs.doc(window.firebaseDb,"households",householdId,"members",user.uid));
+     if(!memberSnap.exists()){
+       throw new Error("HOUSEHOLD_MEMBERSHIP_MISSING");
+     }
+
+     // Load the household first so Plus entitlement is available immediately.
+     const householdSnap=await window.fs.getDoc(window.fs.doc(window.firebaseDb,"households",householdId));
+     if(!householdSnap.exists()) throw new Error("HOUSEHOLD_NOT_FOUND");
+     householdData=householdSnap.data();
+
+     // Only the owner performs first-run/starter-data writes. Other members only read.
+     if(householdData.ownerId===user.uid){
+       await seedHousehold();
+     }
      await ensureMemberProfiles();
      await finishHouseholdLoad();
    }else{
@@ -597,7 +615,11 @@ async function initialiseCloudForUser(user){
      document.getElementById("mainApp").classList.add("hidden");
      showOurHomeStage1PlanScreen();
    }
- }catch(err){console.error(err);showToast("❌ Could not connect to Firestore. Check your rules.")}
+ }catch(err){
+   console.error("Our Home Firestore initialisation failed:",err);
+   const reason=err?.code||err?.message||"unknown-error";
+   showToast(`❌ Firestore connection failed (${reason}).`);
+ }
 }
 
 function makeInviteCode(){return Math.random().toString(36).slice(2,10).toUpperCase()}
@@ -608,7 +630,7 @@ async function createHousehold(){
  const pendingPlan=localStorage.getItem("ourHomePendingPlan")||"free";
  const pendingBilling=localStorage.getItem("ourHomePendingBilling")||"free";
  const initialPlan=window.OUR_HOME_DEV_PREMIUM ? "plus" : (pendingPlan==="plus"?"plus":"free");
- const initialStatus=pendingPlan==="plus"?"pending_payment":"active";
+ const initialStatus=window.OUR_HOME_DEV_PREMIUM ? "active" : (pendingPlan==="plus"?"pending_payment":"active");
  try{
    await window.fs.setDoc(window.fs.doc(window.firebaseDb,"households",id),{name,ownerId:user.uid,inviteCode,plan:initialPlan,subscriptionStatus:initialStatus,billingCycle:pendingBilling,createdAt:new Date().toISOString()});
    await window.fs.setDoc(window.fs.doc(window.firebaseDb,"households",id,"members",user.uid),{uid:user.uid,email:user.email,name:user.email?.split("@")[0]||"User",role:"owner",inviteCode,joinedAt:new Date().toISOString(),avatar:"🧑",colour:"#2563eb"});
@@ -755,7 +777,7 @@ async function ensureMemberProfiles(){
    const snap=await window.fs.getDocs(window.fs.collection(window.firebaseDb,'households',householdId,'members'));
    for(let i=0;i<snap.docs.length;i++){
      const d=snap.docs[i],m=d.data(),defs=memberProfileDefaults(m,i);
-     if(!m.avatar||!m.colour) await window.fs.setDoc(d.ref,{avatar:defs.avatar,colour:defs.colour},{merge:true});
+     if((!m.avatar||!m.colour) && (m.uid===window.currentFirebaseUser?.uid || householdData?.ownerId===window.currentFirebaseUser?.uid)) await window.fs.setDoc(d.ref,{avatar:defs.avatar,colour:defs.colour},{merge:true});
    }
  }catch(e){console.error('Profile setup failed',e)}
 }

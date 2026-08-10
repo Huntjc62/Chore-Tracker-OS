@@ -1,4 +1,4 @@
-const CACHE = "our-home-v13-bulletproof";
+const CACHE = "our-home-v13-1-firestore-fix";
 const ASSETS = [
   "./our-home-firestore-pwa.html",
   "./manifest.json",
