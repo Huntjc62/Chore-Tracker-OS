@@ -2,7 +2,7 @@
   "name": "Our Home",
   "short_name": "Our Home",
   "description": "A shared family chore and rewards app.",
-  "start_url": "./our-home-firestore-pwa.html",
+  "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "background_color": "#f8fafc",
