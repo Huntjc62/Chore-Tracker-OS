@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Our Home V13.4 | Chore Tracker</title>
+<title>Our Home V14 | Chore Tracker</title>
 <style>
 :root{
   --bg:#f4f6f8;--card:#fff;--text:#17202a;--muted:#6b7280;--line:#e5e7eb;
@@ -195,7 +195,7 @@ window.getStatus = function(chore) {
 </script>
 <script id="our-home-pwa-update">
 (function(){
-  const BUILD="13.4";
+  const BUILD="14.0";
   window.OUR_HOME_BUILD=BUILD;
   if("serviceWorker" in navigator){
     window.addEventListener("load", async function(){
@@ -214,6 +214,22 @@ window.getStatus = function(chore) {
   }
 })();
 </script>
+
+<style id="our-home-v14-admin-css">
+.oh-admin-hero{background:linear-gradient(135deg,#111827,#1e3a8a);color:#fff;border-radius:22px;padding:24px;margin-bottom:16px}
+.oh-admin-hero h2{margin:0 0 6px;font-size:26px}.oh-admin-hero p{margin:0;opacity:.8}
+.oh-admin-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px}
+.oh-admin-stat{background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 2px 8px #00000008}.oh-admin-stat .icon{font-size:24px}.oh-admin-stat .number{font-size:30px;font-weight:900;margin-top:5px}.oh-admin-stat .label{font-size:12px;color:var(--muted);font-weight:700}
+.oh-admin-table{width:100%;border-collapse:collapse}.oh-admin-table th,.oh-admin-table td{padding:10px;border-bottom:1px solid var(--line);text-align:left;font-size:13px}.oh-admin-table th{font-size:11px;text-transform:uppercase;color:var(--muted)}
+.oh-admin-pill{display:inline-flex;padding:4px 8px;border-radius:999px;background:#eef2ff;color:#3730a3;font-size:11px;font-weight:800}.oh-admin-pill.paid{background:#dcfce7;color:#166534}.oh-admin-pill.free{background:#f3f4f6;color:#4b5563}.oh-admin-pill.error{background:#fee2e2;color:#991b1b}
+.oh-legal-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.oh-legal-card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:20px}.oh-legal-card h3{margin-top:0}.oh-legal-card h4{margin-bottom:5px}.oh-legal-card p,.oh-legal-card li{color:#4b5563;line-height:1.55;font-size:14px}
+.oh-subscription-card{border:2px solid #e9e3ff;background:#fbfaff;border-radius:18px;padding:18px;margin-top:15px}.oh-subscription-card .price{font-size:26px;font-weight:900}
+.oh-onboarding-progress{display:flex;gap:8px;justify-content:center;margin:0 0 18px}.oh-onboarding-step{padding:7px 12px;border-radius:999px;background:#e5e7eb;color:#6b7280;font-size:12px;font-weight:800}.oh-onboarding-step.active{background:#2563eb;color:#fff}
+.oh-admin-login{margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+@media(max-width:900px){.oh-admin-grid{grid-template-columns:repeat(2,1fr)}.oh-legal-grid{grid-template-columns:1fr}}
+@media(max-width:600px){.oh-admin-grid{grid-template-columns:1fr 1fr}.oh-admin-table{min-width:650px}.oh-admin-table-wrap{overflow:auto}}
+</style>
+
 </head>
 <body>
 
@@ -284,6 +300,7 @@ window.getStatus = function(chore) {
     </form>
     <button class="auth-switch" id="authSwitch" type="button">Create an account</button>
     <button class="auth-switch" type="button" onclick="sendPasswordReset()">🔑 Forgot password?</button>
+    <button class="auth-switch" type="button" onclick="openAdminLogin()">🛡️ Admin portal</button>
     <div id="authMessage" class="auth-message"></div>
   </div>
 </div>
@@ -331,6 +348,8 @@ window.getStatus = function(chore) {
   <button data-view="plus" onclick="setView('plus')">⭐ Plus</button>
   <button data-view="family" onclick="setView('family')">👨‍👩‍👧‍👦 Family</button>
   <button data-view="history" onclick="setView('history')">📈 History</button>
+  <button data-view="legal" onclick="setView('legal')">📜 Legal</button>
+  <button data-view="admin" id="adminNavButton" class="hidden" onclick="setView('admin')">🛡️ Admin</button>
 </nav>
 
 <div id="offlineBanner" class="offline-banner hidden">📡 You are offline — your recent changes are saved locally and will sync when you reconnect.</div>
@@ -610,6 +629,7 @@ async function handleAuthSubmit(e){
 }
 function handleAuthState(user){
  const screen=document.getElementById("authScreen"),appEl=document.getElementById("mainApp"),house=document.getElementById("householdScreen");
+ if(window.updateAdminUI) window.updateAdminUI();
  if(!user){screen.classList.remove("hidden");house.classList.add("hidden");appEl.classList.add("hidden");stopCloudListeners();return}
  screen.classList.add("hidden");appEl.classList.add("hidden");
  initialiseCloudForUser(user);
@@ -642,9 +662,19 @@ async function initialiseCloudForUser(user){
      await ensureMemberProfiles();
      await finishHouseholdLoad();
    }else{
-     document.getElementById("householdScreen").classList.add("hidden");
-     document.getElementById("mainApp").classList.add("hidden");
-     showOurHomeStage1PlanScreen();
+     if(window.isAdminClient && window.isAdminClient()){
+       document.getElementById("our-home-stage1-plan-screen")?.classList.remove("show");
+       document.getElementById("householdScreen").classList.add("hidden");
+       document.getElementById("mainApp").classList.remove("hidden");
+       currentView="admin";
+       cloudReady=false;
+       if(window.updateAdminUI) window.updateAdminUI();
+       if(window.render) window.render();
+     }else{
+       document.getElementById("householdScreen").classList.add("hidden");
+       document.getElementById("mainApp").classList.add("hidden");
+       showOurHomeStage1PlanScreen();
+     }
    }
  }catch(err){
    console.error("Our Home Firestore initialisation failed:",err);
@@ -816,7 +846,7 @@ function openProfileModal(){const me=householdMembers.find(m=>m.uid===window.cur
 function closeProfileModal(){document.getElementById('profileModalBackdrop').classList.remove('show')}
 async function saveMyProfile(e){e.preventDefault();const uid=window.currentFirebaseUser?.uid;if(!uid||!householdId)return;const name=document.getElementById('profileName').value.trim();if(!name)return;try{await window.fs.setDoc(window.fs.doc(window.firebaseDb,'households',householdId,'members',uid),{name,avatar:document.getElementById('profileAvatar').value,colour:document.getElementById('profileColour').value,updatedAt:new Date().toISOString()},{merge:true});await window.fs.setDoc(window.fs.doc(window.firebaseDb,'users',uid),{displayName:name},{merge:true});closeProfileModal();showToast('👤 Profile updated')}catch(err){console.error(err);showToast('❌ Could not update profile')}}
 function profileCard(m,i){const defs=memberProfileDefaults(m,i),name=escapeHTML(m.name||'Member'),week=weeklyPoints(m.name||'Member'),life=lifetimePoints(m.name||'Member'),balance=currentBalance(m.name||'Member'),count=rewardsRedeemed(m.name||'Member'),streak=streakForMember(m.name||'Member');return `<div class="player" style="border-top:5px solid ${defs.colour}"><div class="profile-avatar" style="background:${defs.colour}22">${defs.avatar}</div><div class="profile-name">${name}</div><div class="points">⭐ ${balance}</div><div style="color:var(--muted);font-size:12px">Current balance</div><div class="profile-stats"><div class="profile-stat"><strong>${week} ⭐</strong><span>This week</span></div><div class="profile-stat"><strong>${streak} 🔥</strong><span>Current streak</span></div><div class="profile-stat"><strong>${life} ⭐</strong><span>Lifetime points</span></div><div class="profile-stat"><strong>${count}</strong><span>Rewards redeemed</span></div></div>${m.uid===window.currentFirebaseUser?.uid?'<div class="profile-actions"><button class="btn secondary" onclick="openProfileModal()">✏️ Edit Profile</button></div>':''}</div>`}
-function profilesHTML(){const members=householdMembers.length?householdMembers:[{uid:window.currentFirebaseUser?.uid,name:'You',avatar:'🧑',colour:'#2563eb'}];return `<div class="card"><div class="section-title"><div><h2>👤 Household Profiles</h2><p style="color:var(--muted);margin:4px 0 0">Your household at a glance.</p></div><button class="btn" onclick="openProfileModal()">✏️ Edit My Profile</button></div><div class="leaderboard">${members.map((m,i)=>profileCard(m,i)).join('')}</div></div>${accountSettingsHTML()}`}
+function profilesHTML(){const members=householdMembers.length?householdMembers:[{uid:window.currentFirebaseUser?.uid,name:'You',avatar:'🧑',colour:'#2563eb'}];return `<div class="card"><div class="section-title"><div><h2>👤 Household Profiles</h2><p style="color:var(--muted);margin:4px 0 0">Your household at a glance.</p></div><button class="btn" onclick="openProfileModal()">✏️ Edit My Profile</button></div><div class="leaderboard">${members.map((m,i)=>profileCard(m,i)).join('')}</div></div>${accountSettingsHTML()}${typeof subscriptionHTML==='function'?subscriptionHTML():''}`}
 function render(){
   const content=document.getElementById("appContent");
   if(!content)return;
@@ -832,6 +862,8 @@ function render(){
     else if(currentView==="plus") content.innerHTML=plusHTML();
     else if(currentView==="family") content.innerHTML=familyModeHTML();
     else if(currentView==="history") content.innerHTML=historyPageHTML();
+    else if(currentView==="legal") content.innerHTML=legalHTML();
+    else if(currentView==="admin") content.innerHTML=adminDashboardHTML();
     else content.innerHTML=dashboardHTML();
     updateNotificationButton();
     updateNotificationBadge();
@@ -889,7 +921,7 @@ async function submitChoreForm(e){e.preventDefault();if(!cloudReady)return;const
 if(repeatValue==="custom"&&!isPlusActive()){showToast("⭐ Custom recurring chores require Our Home Plus.");return}
 const data={name:document.getElementById("choreName").value.trim(),assignedTo:document.getElementById("chorePerson").value,points:Number(document.getElementById("chorePoints").value),dueDate:document.getElementById("choreDate").value,repeat:repeatValue};
 if(repeatValue==="custom"){data.customEvery=Math.max(1,Number(document.getElementById("customRepeatEvery").value||1));data.customUnit=document.getElementById("customRepeatUnit").value;}if(!data.name||!data.dueDate)return;try{if(editingId){const c=chores.find(x=>x.id===editingId);await saveChoreCloud({...c,...data});showToast("✏️ Chore updated")}else{await saveChoreCloud({id:uid(),...data,createdBy:window.currentFirebaseUser?.uid,completed:false,completedAt:null});showToast("🧹 Chore added")}closeModal()}catch(err){console.error(err);showToast("❌ Could not save chore")}}
-async function completeChore(id){const c=chores.find(x=>x.id===id);if(!c)return;try{const currentUid=window.currentFirebaseUser?.uid;const currentMember=householdMembers.find(m=>m.uid===currentUid);if(!currentMember){showToast("❌ Your household profile could not be found.");return}if(c.assignedTo!=="Shared" && String(c.assignedTo).toLowerCase()!==String(currentMember.name||"").toLowerCase()){showToast(`👤 This chore is assigned to ${c.assignedTo}.`);return}const completedDate=todayKey(),points=Number(c.points||0);const h={id:uid(),choreId:c.id,choreName:c.name,person:c.assignedTo==="Shared"?currentMember.name:c.assignedTo,personUid:currentUid,points,date:completedDate,week:weekKey(),completedAt:new Date().toISOString()};await saveCompletionCloud(h);completionHistory.push(h);achievementNotification(h.person,streakForMember(h.person));leaderboardNotification();if(c.repeat!=="none"){await saveChoreCloud({...c,completed:false,completedAt:null,dueDate:nextDueDate(c.dueDate,c.repeat,c)});showToast(`🔄 ${c.name} completed — next due ${formatDate(nextDueDate(c.dueDate,c.repeat,c))}`)}else{await saveChoreCloud({...c,completed:true,completedAt:{date:completedDate,week:weekKey()}});showToast(`⭐ ${points} points earned!`)}}catch(err){console.error(err);showToast("❌ Could not complete chore")}}
+async function completeChore(id){const c=chores.find(x=>x.id===id);if(!c)return;try{const currentUid=window.currentFirebaseUser?.uid;const currentMember=householdMembers.find(m=>m.uid===currentUid);if(!currentMember){showToast("❌ Your household profile could not be found.");return}if(c.assignedTo!=="Shared" && String(c.assignedTo).toLowerCase()!==String(currentMember.name||"").toLowerCase()){showToast(`👤 This chore is assigned to ${c.assignedTo}.`);return}const completedDate=todayKey(),points=Number(c.points||0);const h={id:uid(),choreId:c.id,choreName:c.name,person:c.assignedTo==="Shared"?currentMember.name:c.assignedTo,personUid:currentUid,points,date:completedDate,week:weekKey(),completedAt:new Date().toISOString()};await saveCompletionCloud(h);completionHistory.push(h);logAnalyticsEvent("chore_completed",{choreId:c.id,points,personUid:currentUid});achievementNotification(h.person,streakForMember(h.person));leaderboardNotification();if(c.repeat!=="none"){await saveChoreCloud({...c,completed:false,completedAt:null,dueDate:nextDueDate(c.dueDate,c.repeat,c)});showToast(`🔄 ${c.name} completed — next due ${formatDate(nextDueDate(c.dueDate,c.repeat,c))}`)}else{await saveChoreCloud({...c,completed:true,completedAt:{date:completedDate,week:weekKey()}});showToast(`⭐ ${points} points earned!`)}}catch(err){console.error(err);showToast("❌ Could not complete chore")}}
 async function undoChore(id){const c=chores.find(x=>x.id===id);if(!c)return;try{await saveChoreCloud({...c,completed:false,completedAt:null});showToast("↩ Chore reopened") }catch(err){showToast("❌ Could not update chore")}}
 function nextDueDate(date,repeat,chore=null){
  const d=parseDate(date);
@@ -922,7 +954,7 @@ async function buyReward(id){
  if(!confirm(`Redeem ${r.name} for ${cost} ⭐ using ${redeemer}'s points?`))return;
  try{
    const redemption={id:uid(),rewardId:r.id,rewardName:r.name,person:redeemer,personUid:member.uid,cost,owner:"Shared",week:weekKey(),date:todayKey(),redeemedAt:new Date().toISOString()};
-   await window.fs.setDoc(redemptionRef(redemption.id),redemption);
+   await window.fs.setDoc(redemptionRef(redemption.id),redemption);logAnalyticsEvent("reward_redeemed",{rewardId:r.id,cost});
    showToast(`🎁 ${redeemer} redeemed ${r.name} for ${cost} ⭐!`);
  }catch(err){console.error(err);showToast("❌ Could not redeem reward")}
 }
@@ -1259,5 +1291,274 @@ async function saveFamilyChore(chore){
   }catch(e){console.error(e);showToast("❌ Could not add family chore.");}
 }
 </script>
+
+<script id="our-home-v14-admin-core">
+/* =========================================================
+   OUR HOME V14 — ADMIN / ANALYTICS / LEGAL / MONITORING
+   Admin identity is additionally protected by Firestore rules.
+   Current development admin: huntjc62@gmail.com
+   ========================================================= */
+window.OUR_HOME_ADMIN_EMAILS = ["huntjc62@gmail.com"];
+window.OUR_HOME_ADMIN_EMAIL = "huntjc62@gmail.com";
+let adminStatsCache = null;
+let adminStatsLoading = false;
+
+function isAdminClient(){
+  const email=(window.currentFirebaseUser?.email||"").toLowerCase();
+  return window.OUR_HOME_ADMIN_EMAILS.includes(email);
+}
+window.isAdminClient=isAdminClient;
+
+function updateAdminUI(){
+  const b=document.getElementById("adminNavButton");
+  if(b) b.classList.toggle("hidden",!isAdminClient());
+}
+
+function openAdminLogin(){
+  authMode="signin";
+  window.OUR_HOME_ADMIN_LOGIN=true;
+  updateAuthUI();
+  const sub=document.getElementById("authSubtitle");
+  if(sub) sub.textContent="🛡️ Admin portal — authorised account only";
+  const email=document.getElementById("authEmail");
+  if(email && !email.value) email.value=window.OUR_HOME_ADMIN_EMAIL;
+  setAuthMessage("Use your existing Firebase account credentials. Admin access is restricted to the authorised administrator account.",false);
+}
+
+function legalHTML(){
+  return `<div class="card"><div class="section-title"><div><h2>📜 Privacy & Terms</h2><p style="color:var(--muted)">Important information about using Our Home.</p></div><span class="oh-plan-pill">Version 1.0</span></div>
+  <div class="oh-legal-grid">
+    <div class="oh-legal-card"><h3>🔒 Privacy Policy</h3>
+      <h4>What we collect</h4><p>Our Home stores the information needed to provide the service, including your email address, household details, profiles, chores, completion records, rewards and subscription status.</p>
+      <h4>How we use it</h4><p>We use this information to authenticate you, synchronise your household across devices, provide features and improve reliability. Product analytics and error logs are designed to contain minimal technical information.</p>
+      <h4>Who can see it</h4><p>Household data is restricted to authorised members of that household. System administration data is restricted to the authorised Our Home administrator.</p>
+      <h4>Data deletion</h4><p>You can request deletion through Account & Security. Household owners can delete their household and stored household records.</p>
+      <h4>Third-party services</h4><p>Our Home uses Firebase for authentication and cloud data storage. Stripe will be used for paid subscriptions when payment is connected.</p>
+    </div>
+    <div class="oh-legal-card"><h3>📄 Terms of Use</h3>
+      <h4>Use of the service</h4><p>Our Home is a household organisation tool. You are responsible for keeping your login details secure and for the information you add to your household.</p>
+      <h4>Subscriptions</h4><p>Our Home Plus is planned at £2.99 per month or £24.99 per year. No payment is taken by this development build. A paid subscription will only become active once payment processing is connected and confirmed.</p>
+      <h4>Household access</h4><p>Do not share household invite codes with people who should not have access. Household owners are responsible for managing membership.</p>
+      <h4>Availability</h4><p>We aim to keep the service reliable, but this development version is not guaranteed to be uninterrupted or error-free.</p>
+      <h4>Contact</h4><p>For the public launch, replace this section with the final legal business name, contact email and registered business details.</p>
+    </div>
+  </div></div>`;
+}
+
+function subscriptionHTML(){
+  const plus=isPlusActive();
+  const plan=householdData?.plan||"free";
+  const status=householdData?.subscriptionStatus||"active";
+  const billing=householdData?.billingCycle||"free";
+  return `<div class="oh-subscription-card"><div class="section-title"><div><h3 style="margin:0">💳 Subscription</h3><p style="color:var(--muted);margin:4px 0 0">Your current Our Home plan.</p></div><span class="oh-plan-pill ${plus?'plus':''}">${plus?'⭐ Plus':'🆓 Free'}</span></div>
+    <div class="price">${plus?(billing==='monthly'?'£2.99/month':'£24.99/year'):'£0'}</div>
+    <p style="color:var(--muted)">Status: <strong>${escapeHTML(plus && window.OUR_HOME_DEV_PREMIUM?'Development Plus access':status)}</strong></p>
+    ${plus?'<button class="btn secondary" onclick="showPlusUpgradeInfo()">Manage Plus</button>':'<button class="btn" onclick="setView(\'plus\')">⭐ View Plus</button>'}
+    <p style="font-size:11px;color:var(--muted);margin-bottom:0">Stripe checkout is not connected yet in this development build.</p>
+  </div>`;
+}
+
+function adminMetric(icon,label,value,detail=""){
+  return `<div class="oh-admin-stat"><div class="icon">${icon}</div><div class="number">${Number(value||0).toLocaleString()}</div><div class="label">${label}</div>${detail?`<div style="font-size:11px;color:var(--muted);margin-top:5px">${detail}</div>`:""}</div>`;
+}
+
+async function loadAdminStats(force=false){
+  if(!isAdminClient()){throw new Error("ADMIN_ACCESS_DENIED")}
+  if(adminStatsLoading) return adminStatsCache;
+  if(adminStatsCache && !force) return adminStatsCache;
+  adminStatsLoading=true;
+  try{
+    const db=window.firebaseDb;
+    const [usersSnap,householdsSnap]=await Promise.all([
+      window.fs.getDocs(window.fs.collection(db,"users")),
+      window.fs.getDocs(window.fs.collection(db,"households"))
+    ]);
+    const stats={users:usersSnap.size,households:householdsSnap.size,members:0,completed:0,stars:0,freeHouseholds:0,paidHouseholds:0,freeMembers:0,paidMembers:0,rewardsRedeemed:0,rewards:0,errors:0,analyticsEvents:0,activePlusMembers:0,householdRows:[],recentErrors:[]};
+    const households=householdsSnap.docs.map(d=>({id:d.id,...d.data()}));
+    for(const h of households){
+      const base=["households",h.id];
+      const [members,chores,completions,rewards,redemptions,analytics,errors]=await Promise.all([
+        window.fs.getDocs(window.fs.collection(db,...base,"members")),
+        window.fs.getDocs(window.fs.collection(db,...base,"chores")),
+        window.fs.getDocs(window.fs.collection(db,...base,"completions")),
+        window.fs.getDocs(window.fs.collection(db,...base,"rewards")),
+        window.fs.getDocs(window.fs.collection(db,...base,"redemptions")),
+        window.fs.getDocs(window.fs.collection(db,...base,"analytics")),
+        window.fs.getDocs(window.fs.collection(db,...base,"errors"))
+      ]);
+      const paid=h.plan==="plus" && h.subscriptionStatus==="active";
+      stats.members+=members.size;stats.completed+=completions.size;stats.stars+=completions.docs.reduce((s,d)=>s+Number(d.data().points||0),0);
+      stats.rewardsRedeemed+=redemptions.size;stats.rewards+=rewards.size;stats.analyticsEvents+=analytics.size;stats.errors+=errors.size;
+      if(paid){stats.paidHouseholds++;stats.paidMembers+=members.size;stats.activePlusMembers+=members.size}else{stats.freeHouseholds++;stats.freeMembers+=members.size}
+      errors.docs.forEach(d=>stats.recentErrors.push({id:d.id,household:h.name||h.id,...d.data()}));
+      stats.householdRows.push({id:h.id,name:h.name||"Unnamed household",plan:h.plan||"free",status:h.subscriptionStatus||"active",members:members.size,completed:completions.size,stars:completions.docs.reduce((s,d)=>s+Number(d.data().points||0),0)});
+    }
+    stats.recentErrors.sort((a,b)=>String(b.createdAt||"").localeCompare(String(a.createdAt||"")));
+    stats.recentErrors=stats.recentErrors.slice(0,20);
+    stats.householdRows.sort((a,b)=>b.completed-a.completed);
+    adminStatsCache=stats;
+    return stats;
+  }finally{adminStatsLoading=false}
+}
+
+function adminDashboardHTML(){
+  if(!isAdminClient()) return `<div class="card"><h2>🛡️ Admin access denied</h2><p>You are not authorised to view the administration area.</p></div>`;
+  if(!adminStatsCache) return `<div class="oh-admin-hero"><h2>🛡️ Our Home Admin</h2><p>Loading whole-system statistics…</p></div><div class="card"><button class="btn" onclick="refreshAdminDashboard()">Refresh</button></div>`;
+  const s=adminStatsCache;
+  return `<div class="oh-admin-hero"><h2>🛡️ Our Home Admin Dashboard</h2><p>Whole-system overview · ${escapeHTML(window.currentFirebaseUser?.email||"")}</p></div>
+    <div class="oh-admin-grid">
+      ${adminMetric("👤","User accounts",s.users)}
+      ${adminMetric("🏠","Households",s.households)}
+      ${adminMetric("👨‍👩‍👧","Members",s.members)}
+      ${adminMetric("✅","Chores completed",s.completed)}
+      ${adminMetric("⭐","Stars earned",s.stars)}
+      ${adminMetric("🆓","Free households",s.freeHouseholds)}
+      ${adminMetric("💳","Paid households",s.paidHouseholds)}
+      ${adminMetric("👥","Members on Plus",s.paidMembers)}
+      ${adminMetric("🎁","Rewards redeemed",s.rewardsRedeemed)}
+      ${adminMetric("📊","Analytics events",s.analyticsEvents)}
+      ${adminMetric("🐛","Logged errors",s.errors)}
+      ${adminMetric("🛍️","Rewards available",s.rewards)}
+    </div>
+    <div class="card"><div class="section-title"><div><h2>🏠 Household overview</h2><p style="color:var(--muted)">Live totals from the Firebase database.</p></div><button class="btn" onclick="refreshAdminDashboard()">🔄 Refresh</button></div><div class="oh-admin-table-wrap"><table class="oh-admin-table"><thead><tr><th>Household</th><th>Plan</th><th>Members</th><th>Completed</th><th>Stars</th></tr></thead><tbody>${s.householdRows.map(h=>`<tr><td><strong>${escapeHTML(h.name)}</strong><br><small>${escapeHTML(h.id)}</small></td><td><span class="oh-admin-pill ${h.plan==='plus'?'paid':'free'}">${h.plan==='plus'?'Plus':'Free'}${h.plan==='plus'&&h.status!=='active'?' · '+escapeHTML(h.status):''}</span></td><td>${h.members}</td><td>${h.completed}</td><td>⭐ ${h.stars.toLocaleString()}</td></tr>`).join('')||'<tr><td colspan="5">No households yet.</td></tr>'}</tbody></table></div></div>
+    <div class="card"><div class="section-title"><div><h2>🐛 Recent errors</h2><p style="color:var(--muted)">Client-reported errors from the app.</p></div></div>${s.recentErrors.length?`<div class="oh-admin-table-wrap"><table class="oh-admin-table"><thead><tr><th>Time</th><th>Household</th><th>Message</th><th>Type</th></tr></thead><tbody>${s.recentErrors.map(e=>`<tr><td>${escapeHTML(String(e.createdAt||'').slice(0,19).replace('T',' '))}</td><td>${escapeHTML(e.household||'')}</td><td>${escapeHTML(e.message||'Unknown')}</td><td><span class="oh-admin-pill error">${escapeHTML(e.type||'error')}</span></td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">🎉 No logged errors.</div>'}</div>`;
+}
+
+async function refreshAdminDashboard(){
+  if(!isAdminClient()){showToast("❌ Admin access denied.");return}
+  try{adminStatsCache=null;render();await loadAdminStats(true);render();showToast("📊 Admin data refreshed.")}catch(e){console.error(e);logAppError(e,"admin-dashboard");showToast("❌ Admin data could not be loaded. Check Firestore rules.")}
+}
+
+async function logAnalyticsEvent(type,data={}){
+  if(!cloudReady||!householdId||!window.currentFirebaseUser)return;
+  try{
+    const id=uid();
+    await window.fs.setDoc(window.fs.doc(window.firebaseDb,"households",householdId,"analytics",id),{
+      id,type,uid:window.currentFirebaseUser.uid,createdAt:new Date().toISOString(),path:location.pathname,view:currentView||"",data
+    });
+  }catch(e){console.warn("Analytics event failed",e)}
+}
+
+async function logAppError(error,source="unknown"){
+  const message=String(error?.message||error||"Unknown error").slice(0,500);
+  console.error("Our Home error",source,error);
+  if(!cloudReady||!householdId||!window.currentFirebaseUser)return;
+  try{
+    const id=uid();
+    await window.fs.setDoc(window.fs.doc(window.firebaseDb,"households",householdId,"errors",id),{
+      id,type:source,message,uid:window.currentFirebaseUser.uid,createdAt:new Date().toISOString(),online:navigator.onLine
+    });
+  }catch(e){console.warn("Error log could not be saved",e)}
+}
+window.logAppError=logAppError;
+window.addEventListener("error",e=>logAppError(e.error||e.message,"window-error"));
+window.addEventListener("unhandledrejection",e=>logAppError(e.reason,"unhandled-rejection"));
+
+/* Instrument screen changes without changing the existing app behaviour. */
+const originalSetView=window.setView;
+if(originalSetView && !window.__ourHomeSetViewWrapped){
+  window.setView=function(view){
+    logAnalyticsEvent("view",{view});
+    currentView=view;
+    if(view==="admin" || view==="legal") return window.render();
+    return originalSetView(view);
+  };
+  window.__ourHomeSetViewWrapped=true;
+}
+
+/* Add subscription/legal information to Profiles without changing existing controls. */
+const originalProfilesHTML=window.profilesHTML;
+if(originalProfilesHTML && !window.__ourHomeProfilesWrapped){
+  window.profilesHTML=function(){return originalProfilesHTML()+subscriptionHTML()};
+  window.__ourHomeProfilesWrapped=true;
+}
+
+/* Extend render with Admin + Legal screens. */
+const originalRender=window.render;
+if(originalRender && !window.__ourHomeRenderWrapped){
+  window.render=function(){
+    if(currentView==="admin" || currentView==="legal"){
+      const content=document.getElementById("appContent");
+      document.querySelectorAll("#nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===currentView));
+      try{
+        content.innerHTML=currentView==="legal"?legalHTML():adminDashboardHTML();
+        updateAdminUI();updateOfflineUI();
+        if(currentView==="admin" && isAdminClient() && !adminStatsCache) loadAdminStats().then(()=>window.render()).catch(e=>{console.error(e);logAppError(e,"admin-load")});
+      }catch(e){content.innerHTML=`<div class="card"><h2>⚠️ Admin screen error</h2><p>${escapeHTML(e.message||"Unknown error")}</p></div>`;logAppError(e,"render")}
+      return;
+    }
+    originalRender();
+    updateAdminUI();
+  };
+  window.__ourHomeRenderWrapped=true;
+}
+
+/* Make the development Plus account obvious while keeping the original entitlement logic. */
+function updatePlusBadge(){
+  const p=document.getElementById("planBadge");
+  if(p) p.textContent=window.OUR_HOME_DEV_PREMIUM||isPlusActive()?"⭐ Our Home Plus":"🆓 Our Home Free";
+}
+
+/* Admin can be used with the existing Firebase account. If the admin account has no household,
+   allow the admin dashboard to open instead of forcing household setup. */
+const originalInitialiseCloud=window.initialiseCloudForUser;
+if(originalInitialiseCloud && !window.__ourHomeInitWrapped){
+  window.initialiseCloudForUser=async function(user){
+    if(isAdminClient()){
+      try{
+        const profileSnap=await window.fs.getDoc(window.fs.doc(window.firebaseDb,"users",user.uid));
+        if(!profileSnap.exists() || !profileSnap.data().householdId){
+          cloudReady=false;document.getElementById("householdScreen")?.classList.add("hidden");document.getElementById("mainApp")?.classList.remove("hidden");currentView="admin";updateAdminUI();window.render();return;
+        }
+      }catch(e){console.warn("Admin profile lookup failed",e)}
+    }
+    return originalInitialiseCloud(user);
+  };
+  window.__ourHomeInitWrapped=true;
+}
+
+/* Patch the existing auth state handler so admin controls appear immediately. */
+const originalHandleAuthState=window.handleAuthState;
+if(originalHandleAuthState && !window.__ourHomeAuthWrapped){
+  window.handleAuthState=function(user){
+    if(!user) updateAdminUI();
+    const result=originalHandleAuthState(user);
+    updateAdminUI();
+    if(user && isAdminClient()) updatePlusBadge();
+    return result;
+  };
+  window.__ourHomeAuthWrapped=true;
+}
+
+/* If the user selects the Admin portal, require the authorised email. */
+const originalHandleAuthSubmit=window.handleAuthSubmit;
+if(originalHandleAuthSubmit && !window.__ourHomeAuthSubmitWrapped){
+  window.handleAuthSubmit=async function(e){
+    if(window.OUR_HOME_ADMIN_LOGIN){
+      e.preventDefault();
+      const email=document.getElementById("authEmail").value.trim().toLowerCase();
+      const password=document.getElementById("authPassword").value;
+      if(email!==window.OUR_HOME_ADMIN_EMAIL){setAuthMessage("This account is not authorised for the admin portal.");return}
+      try{
+        setAuthMessage("Signing in to the admin portal…",false);
+        await window.firebaseSignIn(window.firebaseAuth,email,password);
+        window.OUR_HOME_ADMIN_LOGIN=false;
+        setAuthMessage("",false);
+      }catch(err){setAuthMessage(err?.code||"Unable to sign in to the admin portal.")}
+      return;
+    }
+    return originalHandleAuthSubmit(e);
+  };
+  window.__ourHomeAuthSubmitWrapped=true;
+}
+
+/* Analytics for the most important actions. */
+window.addEventListener("ourhome:planSelected",e=>logAnalyticsEvent("plan_selected",e.detail||{}));
+
+/* Refresh admin controls whenever Firebase auth changes. */
+window.addEventListener("firebase-auth-changed",()=>{updateAdminUI();updatePlusBadge()});
+setTimeout(()=>{updateAdminUI();updatePlusBadge()},500);
+</script>
+
 </body>
 </html>

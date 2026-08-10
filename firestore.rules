@@ -10,10 +10,17 @@ service cloud.firestore {
       return signedIn() && get(/databases/$(database)/documents/households/$(hid)).data.ownerId == request.auth.uid;
     }
 
+    function admin() {
+      return signedIn()
+        && request.auth.token.email == 'huntjc62@gmail.com'
+;
+    }
+
+
     match /users/{uid} {
       allow create: if signedIn() && uid == request.auth.uid
         && request.resource.data.uid == request.auth.uid;
-      allow read: if signedIn() && uid == request.auth.uid;
+      allow read: if (signedIn() && uid == request.auth.uid) || admin();
       allow update: if signedIn() && uid == request.auth.uid
         && request.resource.data.uid == resource.data.uid
         && request.resource.data.householdId == resource.data.householdId;
@@ -38,7 +45,7 @@ service cloud.firestore {
         && request.resource.data.subscriptionStatus == (request.resource.data.plan == 'free' ? 'active' : 'pending_payment');
 
       // Members may read metadata. Only the owner may change non-billing settings.
-      allow read: if member(hid);
+      allow read: if member(hid) || admin();
       allow update: if owner(hid)
         && request.resource.data.ownerId == resource.data.ownerId
         && request.resource.data.plan == resource.data.plan
@@ -49,7 +56,7 @@ service cloud.firestore {
       allow delete: if owner(hid);
 
       match /members/{uid} {
-        allow read: if member(hid);
+        allow read: if member(hid) || admin();
         allow create: if signedIn() && (
           (uid == request.auth.uid
             && request.resource.data.uid == request.auth.uid
@@ -65,7 +72,7 @@ service cloud.firestore {
       }
 
       match /chores/{id} {
-        allow read: if member(hid);
+        allow read: if member(hid) || admin();
         allow create: if member(hid)
           && request.resource.data.points is int
           && request.resource.data.points >= 1
@@ -81,7 +88,7 @@ service cloud.firestore {
       }
 
       match /completions/{id} {
-        allow read: if member(hid);
+        allow read: if member(hid) || admin();
         allow create: if member(hid)
           && request.resource.data.personUid == request.auth.uid
           && request.resource.data.points is int
@@ -91,7 +98,7 @@ service cloud.firestore {
       }
 
       match /rewards/{id} {
-        allow read: if member(hid);
+        allow read: if member(hid) || admin();
         allow create: if member(hid)
           && request.resource.data.cost is int
           && request.resource.data.cost >= 1
@@ -101,11 +108,27 @@ service cloud.firestore {
       }
 
       match /redemptions/{id} {
-        allow read: if member(hid);
+        allow read: if member(hid) || admin();
         allow create: if member(hid)
           && request.resource.data.personUid == request.auth.uid
           && request.resource.data.cost is int
           && request.resource.data.cost == get(/databases/$(database)/documents/households/$(hid)/rewards/$(request.resource.data.rewardId)).data.cost;
+        allow update, delete: if false;
+      }
+
+      match /analytics/{id} {
+        allow read: if admin();
+        allow create: if member(hid)
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.type is string;
+        allow update, delete: if false;
+      }
+
+      match /errors/{id} {
+        allow read: if admin();
+        allow create: if member(hid)
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.message is string;
         allow update, delete: if false;
       }
     }

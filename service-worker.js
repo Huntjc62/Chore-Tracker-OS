@@ -1,4 +1,4 @@
-const CACHE = "our-home-v13-4";
+const CACHE = "our-home-v14-admin-analytics";
 const ASSETS = [
   "./",
   "./index.html",
