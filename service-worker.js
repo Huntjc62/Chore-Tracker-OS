@@ -1,4 +1,4 @@
-const CACHE = "our-home-v8-auto-update";
+const CACHE = "our-home-v9-onboarding";
 const STATIC_ASSETS = [
   "./",
   "./index.html",

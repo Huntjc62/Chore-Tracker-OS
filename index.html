@@ -51,6 +51,14 @@ header{display:flex;justify-content:space-between;align-items:center;gap:16px;ma
 
 
 .household-code{font-size:22px;font-weight:900;letter-spacing:2px;background:#f3f4f6;padding:10px 14px;border-radius:10px;display:inline-block;margin:8px 0}
+
+/* ONBOARDING + PLAN */
+.onboarding-screen{position:fixed;inset:0;background:linear-gradient(135deg,#eff6ff,#f8fafc);display:flex;align-items:center;justify-content:center;padding:18px;z-index:110;overflow:auto}
+.onboarding-card{width:min(760px,100%);background:#fff;border:1px solid var(--line);border-radius:24px;padding:28px;box-shadow:0 20px 60px #00000014}
+.onboarding-top{text-align:center;margin-bottom:22px}.onboarding-top .logo{font-size:52px}.onboarding-top h1{margin:4px 0;font-size:32px}.onboarding-top p{color:var(--muted);margin:6px 0}
+.plan-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0}.plan-card{border:2px solid var(--line);border-radius:18px;padding:18px;cursor:pointer;background:#fff;position:relative}.plan-card.selected{border-color:var(--primary);box-shadow:0 0 0 3px #2563eb18}.plan-card h3{margin:0 0 6px}.plan-price{font-size:25px;font-weight:900}.plan-card ul{padding-left:20px;color:var(--muted);font-size:13px;line-height:1.7}.plan-badge{position:absolute;right:12px;top:12px;background:#eef2ff;color:#4338ca;padding:4px 8px;border-radius:999px;font-size:11px;font-weight:900}.onboarding-step{display:none}.onboarding-step.active{display:block}.step-dots{display:flex;justify-content:center;gap:7px;margin-bottom:20px}.step-dot{width:9px;height:9px;border-radius:50%;background:#d1d5db}.step-dot.active{background:var(--primary)}.choice-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:20px 0}.choice-card{padding:24px;border:2px solid var(--line);border-radius:18px;text-align:center;cursor:pointer}.choice-card:hover{border-color:var(--primary)}.choice-card .emoji{font-size:42px}.onboarding-actions{display:flex;justify-content:space-between;gap:10px;margin-top:20px}.invite-box{background:#f8fafc;border:1px dashed #cbd5e1;border-radius:16px;padding:16px;text-align:center;margin-top:16px}.invite-code{font-size:28px;font-weight:900;letter-spacing:4px;margin:8px 0}.plus-note{background:#eff6ff;color:#1d4ed8;border-radius:12px;padding:10px 12px;font-size:13px;margin-top:10px}.onboarding-message{min-height:20px;color:var(--red);font-size:13px;margin-top:10px}
+@media(max-width:600px){.plan-grid,.choice-grid{grid-template-columns:1fr}.onboarding-card{padding:20px}.onboarding-top h1{font-size:27px}}
+
 </style>
 
 
@@ -80,6 +88,49 @@ header{display:flex;justify-content:space-between;align-items:center;gap:16px;ma
   </div>
 </div>
 
+
+
+<div id="onboardingScreen" class="onboarding-screen hidden">
+  <div class="onboarding-card">
+    <div class="onboarding-top"><div class="logo">🏠</div><h1>Welcome to Our Home</h1><p>Make everyday life a little easier, together.</p></div>
+    <div class="step-dots"><span class="step-dot active" data-step-dot="1"></span><span class="step-dot" data-step-dot="2"></span><span class="step-dot" data-step-dot="3"></span></div>
+    <div id="onboardingStep1" class="onboarding-step active">
+      <h2>Choose your Our Home plan</h2><p style="color:var(--muted)">Start free or select Plus. The Plus selection is saved to your household now; payment/checkout can be connected later.</p>
+      <div class="plan-grid">
+        <div class="plan-card selected" id="freePlanCard" onclick="selectPlan('free')"><span class="plan-badge">FREE</span><h3>🆓 Our Home Free</h3><div class="plan-price">£0</div><ul><li>Up to 2 household members</li><li>Basic chores & recurring chores</li><li>Today view & leaderboard</li><li>Points, rewards & streaks</li><li>Basic notifications</li></ul></div>
+        <div class="plan-card" id="plusPlanCard" onclick="selectPlan('plus')"><span class="plan-badge">PLUS</span><h3>⭐ Our Home Plus</h3><div class="plan-price">£2.99 <span style="font-size:13px;font-weight:700">/ month</span></div><div style="color:var(--muted);font-size:13px">or <strong>£24.99 / year</strong></div><ul><li>Advanced statistics & achievements</li><li>Unlimited custom rewards & family members</li><li>Custom themes & advanced streaks</li><li>Advanced recurring schedules</li><li>Goals, monthly reports & data export</li><li>Advanced notifications & branding</li></ul></div>
+      </div>
+      <div id="plusBilling" class="plus-note hidden">⭐ Plus selected. Choose monthly or annual billing — payment integration will be connected before launch.</div>
+      <div class="onboarding-actions"><span></span><button class="btn" onclick="onboardingNext(2)">Continue →</button></div>
+    </div>
+    <div id="onboardingStep2" class="onboarding-step">
+      <h2>How are you setting up?</h2><p style="color:var(--muted)">Create a new household or join one you've been invited to.</p>
+      <div class="choice-grid"><div class="choice-card" onclick="chooseOnboardingMode('create')"><div class="emoji">🏠</div><h3>Create a household</h3><p style="color:var(--muted)">Start your own household and invite your family.</p></div><div class="choice-card" onclick="chooseOnboardingMode('join')"><div class="emoji">🔗</div><h3>Join a household</h3><p style="color:var(--muted)">Use an invite code from someone already using Our Home.</p></div></div>
+      <div class="onboarding-actions"><button class="btn secondary" onclick="onboardingNext(1)">← Back</button><span></span></div>
+    </div>
+    <div id="onboardingStep3" class="onboarding-step">
+      <div id="createSetup">
+        <h2>Set up your household 🏠</h2><p style="color:var(--muted)">Tell us a little about your home.</p>
+        <div class="form-grid"><div class="field"><label>Household name</label><input id="onboardHouseholdName" value="Our Home" maxlength="40"></div><div class="field"><label>Your name</label><input id="onboardYourName" maxlength="30" placeholder="e.g. Josh"></div><div class="field full"><label>Partner / family members to invite</label><input id="onboardInviteNames" maxlength="200" placeholder="e.g. Lily, Emma"><small style="color:var(--muted)">Separate names with commas. Free supports you + 1 other member.</small></div></div>
+        <div id="createPlanSummary" class="plus-note"></div>
+        <div class="onboarding-actions"><button class="btn secondary" onclick="onboardingNext(2)">← Back</button><button class="btn" onclick="finishOnboardingCreate()">Create My Household →</button></div>
+      </div>
+      <div id="joinSetup" class="hidden">
+        <h2>Join your household 🔗</h2><p style="color:var(--muted)">Enter the invite code you've been given.</p>
+        <div class="field"><label>Your name</label><input id="onboardJoinName" maxlength="30" placeholder="e.g. Lily"></div>
+        <div class="field" style="margin-top:12px"><label>Household invite code</label><input id="onboardJoinCode" maxlength="20" placeholder="e.g. AB7K9Q2M" style="text-transform:uppercase"></div>
+        <div id="joinPlanNote" class="plus-note">The household's existing plan will apply when you join.</div>
+        <div class="onboarding-actions"><button class="btn secondary" onclick="onboardingNext(2)">← Back</button><button class="btn" onclick="finishOnboardingJoin()">Join Household →</button></div>
+      </div>
+      <div id="onboardingMessage" class="onboarding-message"></div>
+    </div>
+    <div id="onboardingComplete" class="onboarding-step">
+      <div class="onboarding-top"><div class="logo">🎉</div><h1>You're all set!</h1><p>Your household is ready.</p></div>
+      <div class="invite-box"><div style="font-weight:800">Invite your household</div><div class="invite-code" id="onboardingInviteCode">--------</div><button class="btn secondary" onclick="copyInviteCode()">📋 Copy Invite Code</button><p style="color:var(--muted);font-size:12px;margin-bottom:0">Share this code with your family so they can join.</p></div>
+      <div class="onboarding-actions"><span></span><button class="btn green" onclick="enterAppFromOnboarding()">🏠 Enter Our Home</button></div>
+    </div>
+  </div>
+</div>
 
 <div id="householdScreen" class="auth-screen hidden">
   <div class="auth-card">
@@ -205,6 +256,10 @@ let notificationPermission=localStorage.getItem(NOTIFY_KEY)||"disabled";
 let notifiedOverdue=loadJSON(NOTIFIED_KEY,[]);
 let householdId=null;
 let householdData=null;
+let onboardingPlan="free";
+let onboardingBilling="annual";
+let onboardingMode="create";
+let onboardingInviteCode="";
 let unsubscribeChores=null,unsubscribeCompletions=null,unsubscribeRewards=null,unsubscribeRedemptions=null;
 let cloudReady=false;
 
@@ -238,9 +293,9 @@ async function handleAuthSubmit(e){
  catch(err){const m={"auth/invalid-credential":"Email or password is incorrect.","auth/invalid-email":"Please enter a valid email address.","auth/email-already-in-use":"An account already exists with this email.","auth/weak-password":"Password must be at least 6 characters.","auth/too-many-requests":"Too many attempts. Please try again later."};setAuthMessage(m[err.code]||"Unable to sign in. Please check your details.")}
 }
 function handleAuthState(user){
- const screen=document.getElementById("authScreen"),appEl=document.getElementById("mainApp"),house=document.getElementById("householdScreen");
- if(!user){screen.classList.remove("hidden");house.classList.add("hidden");appEl.classList.add("hidden");stopCloudListeners();return}
- screen.classList.add("hidden");appEl.classList.add("hidden");
+ const screen=document.getElementById("authScreen"),appEl=document.getElementById("mainApp"),house=document.getElementById("householdScreen"),onboard=document.getElementById("onboardingScreen");
+ if(!user){screen.classList.remove("hidden");house.classList.add("hidden");onboard.classList.add("hidden");appEl.classList.add("hidden");stopCloudListeners();return}
+ screen.classList.add("hidden");appEl.classList.add("hidden");house.classList.add("hidden");
  initialiseCloudForUser(user);
 }
 function signOutUser(){if(window.firebaseAuth&&window.firebaseSignOut)window.firebaseSignOut(window.firebaseAuth).catch(()=>showToast("❌ Unable to sign out"))}
@@ -251,44 +306,92 @@ async function initialiseCloudForUser(user){
    const profileSnap=await window.fs.getDoc(profileRef);
    if(profileSnap.exists()&&profileSnap.data().householdId){
      householdId=profileSnap.data().householdId;
-     // Always run the household seeding check when an existing user logs in.
-     // This adds any newly introduced starter rewards without duplicating existing ones.
      await seedHousehold();
      await ensureMemberProfiles();
      await finishHouseholdLoad();
    }else{
-     document.getElementById("householdScreen").classList.remove("hidden");
-     document.getElementById("mainApp").classList.add("hidden");
-     setHouseholdMessage("Create a household or enter Lily's household invite code.",false);
+     showOnboarding();
    }
  }catch(err){console.error(err);showToast("❌ Could not connect to Firestore. Check your rules.")}
 }
 
-function makeInviteCode(){return Math.random().toString(36).slice(2,10).toUpperCase()}
-async function createHousehold(){
- const user=window.currentFirebaseUser;if(!user)return;
- const name=(document.getElementById("householdName").value.trim()||"Our Home").slice(0,40);
- const id=uid();const inviteCode=makeInviteCode();
- try{
-   await window.fs.setDoc(window.fs.doc(window.firebaseDb,"households",id),{name,ownerId:user.uid,inviteCode,createdAt:new Date().toISOString()});
-   await window.fs.setDoc(window.fs.doc(window.firebaseDb,"households",id,"members",user.uid),{uid:user.uid,email:user.email,name:user.email?.split("@")[0]||"User",role:"owner",inviteCode,joinedAt:new Date().toISOString(),avatar:"🧑",colour:"#2563eb"});
-   await window.fs.setDoc(window.fs.doc(window.firebaseDb,"users",user.uid),{uid:user.uid,email:user.email,householdId:id,updatedAt:new Date().toISOString()},{merge:true});
-   householdId=id;await seedHousehold();await ensureMemberProfiles();await finishHouseholdLoad();showToast("🏠 Household created!");
- }catch(err){console.error(err);setHouseholdMessage("Unable to create household: "+(err.code||err.message))}
+function showOnboarding(){
+ const onboard=document.getElementById("onboardingScreen");
+ document.getElementById("mainApp").classList.add("hidden");
+ document.getElementById("householdScreen").classList.add("hidden");
+ onboard.classList.remove("hidden");
+ onboardingPlan="free";onboardingBilling="annual";onboardingMode="create";
+ selectPlan("free"); onboardingNext(1); setOnboardingMessage("");
+ const u=window.currentFirebaseUser;
+ const suggested=u?.email?.split("@")[0]||"";
+ const name=document.getElementById("onboardYourName"); if(name&&!name.value)name.value=suggested;
 }
-async function joinHousehold(){
+function setOnboardingMessage(msg){const e=document.getElementById("onboardingMessage");if(e)e.textContent=msg||""}
+function onboardingNext(step){
+ [1,2,3].forEach(n=>{document.getElementById("onboardingStep"+n)?.classList.toggle("active",n===step);document.querySelector(`[data-step-dot="${n}"]`)?.classList.toggle("active",n===step)});
+ if(step===3) updateCreatePlanSummary();
+}
+function selectPlan(plan){
+ onboardingPlan=plan;
+ document.getElementById("freePlanCard")?.classList.toggle("selected",plan==="free");
+ document.getElementById("plusPlanCard")?.classList.toggle("selected",plan==="plus");
+ document.getElementById("plusBilling")?.classList.toggle("hidden",plan!=="plus");
+ updateCreatePlanSummary();
+}
+function chooseBilling(cycle){onboardingBilling=cycle;updateCreatePlanSummary()}
+function updateCreatePlanSummary(){
+ const e=document.getElementById("createPlanSummary");if(!e)return;
+ if(onboardingPlan==="free")e.innerHTML="🆓 <strong>Our Home Free</strong> — £0. Up to 2 household members.";
+ else e.innerHTML=`⭐ <strong>Our Home Plus</strong> — £2.99/month or £24.99/year. <select onchange="chooseBilling(this.value)" style="margin-left:6px;padding:6px;border:1px solid #bfdbfe;border-radius:8px"><option value="annual" ${onboardingBilling==="annual"?"selected":""}>£24.99/year</option><option value="monthly" ${onboardingBilling==="monthly"?"selected":""}>£2.99/month</option></select><br><small>Plus selected now; payment/checkout will be connected before public launch.</small>`;
+}
+function chooseOnboardingMode(mode){onboardingMode=mode;document.getElementById("createSetup")?.classList.toggle("hidden",mode!=="create");document.getElementById("joinSetup")?.classList.toggle("hidden",mode!=="join");onboardingNext(3);setOnboardingMessage("")}
+async function copyInviteCode(){
+ const code=onboardingInviteCode||householdData?.inviteCode||"";if(!code)return;
+ try{await navigator.clipboard.writeText(code);showToast("📋 Invite code copied!")}catch(e){showToast("Invite code: "+code)}
+}
+function enterAppFromOnboarding(){document.getElementById("onboardingScreen").classList.add("hidden");finishHouseholdLoad()}
+
+async function finishOnboardingCreate(){
  const user=window.currentFirebaseUser;if(!user)return;
- const code=document.getElementById("joinCode").value.trim().toUpperCase();if(!code){setHouseholdMessage("Enter the household invite code.");return}
+ const name=(document.getElementById("onboardHouseholdName").value.trim()||"Our Home").slice(0,40);
+ const yourName=(document.getElementById("onboardYourName").value.trim()||user.email?.split("@")[0]||"User").slice(0,30);
+ const names=(document.getElementById("onboardInviteNames").value||"").split(",").map(x=>x.trim()).filter(Boolean).slice(0,onboardingPlan==="free"?1:50);
+ if(onboardingPlan==="free" && (document.getElementById("onboardInviteNames").value||"").split(",").map(x=>x.trim()).filter(Boolean).length>1){setOnboardingMessage("🆓 The Free plan supports up to 2 household members. Upgrade to Plus for more.");return}
+ const id=uid(),inviteCode=makeInviteCode();onboardingInviteCode=inviteCode;
  try{
-   // The join-code collection is intentionally keyed by the code, so the user does not need access to other households.
+   await window.fs.setDoc(window.fs.doc(window.firebaseDb,"households",id),{name,ownerId:user.uid,inviteCode,plan:onboardingPlan,billingCycle:onboardingPlan==="plus"?onboardingBilling:null,subscriptionStatus:onboardingPlan==="plus"?"selected":"free",createdAt:new Date().toISOString()});
+   await window.fs.setDoc(window.fs.doc(window.firebaseDb,"households",id,"members",user.uid),{uid:user.uid,email:user.email,name:yourName,role:"owner",inviteCode,joinedAt:new Date().toISOString(),avatar:"🧑",colour:"#2563eb"});
+   await window.fs.setDoc(window.fs.doc(window.firebaseDb,"users",user.uid),{uid:user.uid,email:user.email,householdId:id,onboardingComplete:true,plan:onboardingPlan,billingCycle:onboardingPlan==="plus"?onboardingBilling:null,updatedAt:new Date().toISOString()},{merge:true});
+   // Store intended invitees as pending names; they join later using the household code.
+   await window.fs.updateDoc(window.fs.doc(window.firebaseDb,"households",id),{pendingInviteNames:names,updatedAt:new Date().toISOString()});
+   householdId=id;await seedHousehold();await ensureMemberProfiles();
+   householdData=(await window.fs.getDoc(window.fs.doc(window.firebaseDb,"households",id))).data();
+   document.getElementById("onboardingInviteCode").textContent=inviteCode;
+   document.getElementById("onboardingStep3").classList.remove("active");document.getElementById("onboardingComplete").classList.add("active");
+   document.querySelectorAll("[data-step-dot]").forEach(d=>d.classList.remove("active"));
+ }catch(err){console.error(err);setOnboardingMessage("Unable to create your household: "+(err.code||err.message))}
+}
+async function finishOnboardingJoin(){
+ const user=window.currentFirebaseUser;if(!user)return;
+ const name=(document.getElementById("onboardJoinName").value.trim()||user.email?.split("@")[0]||"User").slice(0,30);
+ const code=document.getElementById("onboardJoinCode").value.trim().toUpperCase();if(!code){setOnboardingMessage("Enter your household invite code.");return}
+ try{
    const codeSnap=await window.fs.getDoc(window.fs.doc(window.firebaseDb,"joinCodes",code));
-   if(!codeSnap.exists()){setHouseholdMessage("That invite code wasn't found.");return}
+   if(!codeSnap.exists()){setOnboardingMessage("That invite code wasn't found.");return}
    const data=codeSnap.data();householdId=data.householdId;
-   await window.fs.setDoc(window.fs.doc(window.firebaseDb,"households",householdId,"members",user.uid),{uid:user.uid,email:user.email,name:user.email?.split("@")[0]||"User",role:"member",inviteCode:code,joinedAt:new Date().toISOString(),avatar:"🧑",colour:"#7c3aed"});
-   await window.fs.setDoc(window.fs.doc(window.firebaseDb,"users",user.uid),{uid:user.uid,email:user.email,householdId,updatedAt:new Date().toISOString()},{merge:true});
-   await ensureMemberProfiles();await finishHouseholdLoad();showToast("🔗 Joined the household!");
- }catch(err){console.error(err);setHouseholdMessage("Unable to join household: "+(err.code||err.message))}
+   const hSnap=await window.fs.getDoc(window.fs.doc(window.firebaseDb,"households",householdId));
+   if(!hSnap.exists()){setOnboardingMessage("That household no longer exists.");return}
+   const h=hSnap.data();const memberSnap=await window.fs.getDocs(window.fs.collection(window.firebaseDb,"households",householdId,"members"));
+   if(h.plan!=="plus" && memberSnap.size>=2){setOnboardingMessage("🆓 This household has reached its 2-member Free plan limit.");return}
+   await window.fs.setDoc(window.fs.doc(window.firebaseDb,"households",householdId,"members",user.uid),{uid:user.uid,email:user.email,name,role:"member",inviteCode:code,joinedAt:new Date().toISOString(),avatar:"🧑",colour:"#7c3aed"});
+   await window.fs.setDoc(window.fs.doc(window.firebaseDb,"users",user.uid),{uid:user.uid,email:user.email,householdId,onboardingComplete:true,plan:h.plan||"free",billingCycle:h.billingCycle||null,updatedAt:new Date().toISOString()},{merge:true});
+   await ensureMemberProfiles();await finishHouseholdLoad();showToast("🔗 Welcome to "+(h.name||"the household")+"!");
+ }catch(err){console.error(err);setOnboardingMessage("Unable to join the household: "+(err.code||err.message))}
 }
+
+function makeInviteCode(){return Math.random().toString(36).slice(2,10).toUpperCase()}
+async function createHousehold(){showOnboarding();onboardingMode="create";onboardingNext(3)}
+async function joinHousehold(){showOnboarding();onboardingMode="join";chooseOnboardingMode("join")}
 async function seedHousehold(){
   const choreSnap=await window.fs.getDocs(window.fs.collection(window.firebaseDb,"households",householdId,"chores"));
   const localChores=loadJSON(STORAGE_KEY,[]);
